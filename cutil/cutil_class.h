@@ -19,7 +19,7 @@
 #ifndef TESSERACT_CUTIL_CUTIL_CLASS_H__
 #define TESSERACT_CUTIL_CUTIL_CLASS_H__
 
-#include "third_party/tesseract/ccutil/ccutil.h"
+#include "ccutil.h"
 #include "tessclas.h"
 #include "const.h"
 #include "strngs.h"

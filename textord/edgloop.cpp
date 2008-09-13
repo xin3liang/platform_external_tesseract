@@ -78,22 +78,24 @@ DLLSYM void get_outlines(                      //edge detect
 void complete_edge(                  //clean and approximate
                    CRACKEDGE *start  //start of loop
                   ) {
-  ScrollView::Color colour;                 //colour to draw in
   inT16 looplength;              //steps in loop
   ICOORD botleft;                //bounding box
   ICOORD topright;
   C_OUTLINE *outline;            //new outline
 
                                  //check length etc.
-  colour = check_path_legal (start);
 #ifndef GRAPHICS_DISABLED
+  ScrollView::Color colour;      //colour to draw in
+  colour = check_path_legal (start);
   if (edges_show_paths) {
                                  //in red
     draw_raw_edge(edge_win, start, colour);
   }
-#endif
 
   if (colour == ScrollView::RED || colour == ScrollView::BLUE) {
+#else
+  if (check_path_legal (start)) {
+#endif
     looplength = loop_bounding_box (start, botleft, topright);
     outline = new C_OUTLINE (start, botleft, topright, looplength);
                                  //add to list
@@ -112,7 +114,12 @@ void complete_edge(                  //clean and approximate
  * These colours are used to draw the raw outline.
  **********************************************************************/
 
-ScrollView::Color check_path_legal(                  //certify outline
+#ifndef GRAPHICS_DISABLED
+ScrollView::Color
+#else
+bool
+#endif
+check_path_legal(                  //certify outline
                         CRACKEDGE *start  //start of loop
                        ) {
   int lastchain;              //last chain code
@@ -146,20 +153,37 @@ ScrollView::Color check_path_legal(                  //certify outline
   || edgept != start || length < MINEDGELENGTH) {
     if (edgept != start) {
       long_edges++;
+#ifndef GRAPHICS_DISABLED
       return ScrollView::YELLOW;
+#else
+      return false;
+#endif 
     }
     else if (length < MINEDGELENGTH) {
       short_edges++;
+#ifndef GRAPHICS_DISABLED
       return ScrollView::MAGENTA;
+#else
+      return false; 
+#endif
     }
     else {
       ED_ILLEGAL_SUM.error ("check_path_legal", TESSLOG, "chainsum=%d",
         chainsum);
+#ifndef GRAPHICS_DISABLED
       return ScrollView::GREEN;
+#else
+      return false;
+#endif
     }
   }
+
+#ifndef GRAPHICS_DISABLED
                                  //colour on inside
   return chainsum < 0 ? ScrollView::BLUE : ScrollView::RED;
+#else
+  return true;
+#endif
 }
 
 /**********************************************************************

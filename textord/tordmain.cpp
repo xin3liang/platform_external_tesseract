@@ -43,7 +43,7 @@
 
 const ERRCODE BLOCKLESS_BLOBS = "Warning:some blobs assigned to no block";
 
-#ifdef GRAPHICS_DISABLED
+#ifndef GRAPHICS_DISABLED
 ETEXT_DESC *global_monitor = NULL;
 #endif
 

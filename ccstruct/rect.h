@@ -24,7 +24,9 @@
 #include          "points.h"
 #include          "ndminx.h"
 #include          "tprintf.h"
+#ifndef GRAPHICS_DISABLED
 #include	"scrollview.h"
+#endif
 
 class DLLSYM TBOX                 //bounding box
 {

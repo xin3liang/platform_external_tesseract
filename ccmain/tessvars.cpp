@@ -34,5 +34,7 @@ EXTERN INT_VAR (tessedit_dangambigs_chop, FALSE,
 EXTERN INT_VAR (tessedit_dangambigs_assoc, FALSE,
 "Use DangAmbigs to direct assoc");
 
+EXTERN INT_VAR (NO_BLOCK, 0, "Do not block output information");
+
 EXTERN IMAGE page_image;         //image of page
 EXTERN FILE *debug_fp = stderr;           //write debug stuff here

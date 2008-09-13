@@ -23,7 +23,9 @@
 #include          "svshowim.h"
 //#include          "evnts.h"
 #include          "notdll.h"
+#ifndef GRAPHICS_DISABLED
 #include	  "scrollview.h"
+#endif
 
 #define LARGEST(a,b) ( (a) > (b) ? (a) : (b) )
 #define SMALLEST(a,b) ( (a) > (b) ? (b) : (a) )

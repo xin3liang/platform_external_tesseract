@@ -1374,12 +1374,16 @@ int Classify::AdaptableWord(TWERD *Word,
         if (LearningDebugLevel >= 2) {
           uinT32 ConfigMask;
           ConfigMask = 1 << IntResult.Config;
+#ifndef GRAPHICS_DISABLED
           ShowMatchDisplay();
+#endif
           IntegerMatcher (IClass, AllProtosOn, (BIT_VECTOR)&ConfigMask,
             NumFeatures, NumFeatures, IntFeatures, 0,
             &IntResult, 6 | 0x19);
+#ifndef GRAPHICS_DISABLED
           UpdateMatchDisplay();
           GetClassToDebug ("Adapting");
+#endif
         }
       }
     }

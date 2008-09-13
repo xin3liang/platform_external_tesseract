@@ -44,10 +44,12 @@ class C_BLOB:public ELIST_LINK
     void move(                    // reposition blob
               const ICOORD vec);  // by vector
 
+#ifndef GRAPHICS_DISABLED
     void plot(                       //draw one
               ScrollView* window,         //window to draw in
               ScrollView::Color blob_colour,    //for outer bits
               ScrollView::Color child_colour);  //for holes
+#endif
 
     void prep_serialise() {  //set ptrs to counts
       outlines.prep_serialise ();

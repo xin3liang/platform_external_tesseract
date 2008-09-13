@@ -321,7 +321,9 @@ int TessBaseAPI::Recognize(struct ETEXT_STRUCT* monitor) {
 
   page_res_ = new PAGE_RES(block_list_);
   if (interactive_mode) {
+#ifndef GRAPHICS_DISABLED //FIXME: does this depend on graphics?
     tesseract_->pgeditor_main(block_list_);
+#endif
   } else if (tesseract_->tessedit_train_from_boxes) {
     apply_box_training(*output_file_, block_list_);
   } else {
@@ -723,7 +725,9 @@ int TessBaseAPI::FindLines() {
     input_file_ = new STRING(kInputFile);
   if (tesseract_ == NULL)
     tesseract_ = new Tesseract;
+#ifndef GRAPHICS_DISABLED // FIXME: does this depend on graphics really?
   tesseract_->pgeditor_read_file(*input_file_, block_list_);
+#endif
   return 0;
 }
 
@@ -847,7 +851,11 @@ TBLOB *make_tesseract_blob(float baseline, float xheight,
                            page_image.get_ysize());
 
   // Create C_BLOBs from the page
-  extract_edges(NULL, &page_image, &page_image,
+  extract_edges(
+#ifndef GRAPHICS_DISABLED
+		NULL, 
+#endif
+		&page_image, &page_image,
                 ICOORD(page_image.get_xsize(), page_image.get_ysize()),
                 block);
 

@@ -25,7 +25,9 @@
 #endif
 #include          <time.h>
 #include          "memry.h"
+#ifndef GRAPHICS_DISABLED
 #include          "scrollview.h"
+#endif
 //#include          "evnts.h"
 #include          "varable.h"
 #include          "callcpp.h"
@@ -72,21 +74,6 @@ void setup_cp_maps() {
   cp_maps[2] = tess_cp_mapping2;
   cp_maps[3] = tess_cp_mapping3;
 }
-
-void
-cprintf (                        //Trace printf
-const char *format, ...          //special message
-) {
-  va_list args;                  //variable args
-  char msg[1000];
-
-  va_start(args, format);  //variable list
-  vsprintf(msg, format, args);  //Format into msg
-  va_end(args);
-
-  tprintf ("%s", msg);
-}
-
 
 #ifndef GRAPHICS_DISABLED
 ScrollView *c_create_window(                   /*create a window */

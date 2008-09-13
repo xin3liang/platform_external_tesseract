@@ -21,7 +21,6 @@
 #define           DRAWTORD_H
 
 #include          "varable.h"
-#include          "scrollview.h"
 #include          "pitsync1.h"
 #include          "blobbox.h"
 #include          "notdll.h"
@@ -32,13 +31,17 @@ extern BOOL_VAR_H (textord_show_fixed_cuts, FALSE,
 "Draw fixed pitch cell boundaries");
 extern STRING_VAR_H (to_debugfile, DEBUG_WIN_NAME, "Name of debugfile");
 extern STRING_VAR_H (to_smdfile, NO_SMD, "Name of SMD file");
-extern ScrollView* to_win;
 extern FILE *to_debug;
+#ifndef GRAPHICS_DISABLED
+#include          "scrollview.h"
+extern ScrollView* to_win;
 void create_to_win(                //make features win
                    ICOORD page_tr  //size of page
                   );
 void close_to_win();  //make features win
+#endif
 void create_todebug_win();  //make gradients win
+#ifndef GRAPHICS_DISABLED
 void plot_blob_list(                      //make gradients win
                     ScrollView* win,           //window to draw in
                     BLOBNBOX_LIST *list,  //blob list
@@ -104,4 +107,5 @@ void plot_row_cells(                       //draw words
                     float xshift,          //amount of shift
                     ICOORDELT_LIST *cells  //cells to draw
                    );
+#endif //GRAPHICS_DISABLED
 #endif

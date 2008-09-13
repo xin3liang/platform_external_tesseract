@@ -22,12 +22,16 @@
 
 #include          "varable.h"
 #include          "notdll.h"
+#ifndef GRAPHICS_DISABLED
 #include	  "scrollview.h"
+#endif
 
 extern STRING_VAR_H (fx_debugfile, DEBUG_WIN_NAME, "Name of debugfile");
+#ifndef GRAPHICS_DISABLED
 extern ScrollView* fx_win;
-extern FILE *fx_debug;
 void create_fx_win();  //make features win
 void clear_fx_win();  //make features win
+#endif
+extern FILE *fx_debug;
 void create_fxdebug_win();  //make gradients win
 #endif

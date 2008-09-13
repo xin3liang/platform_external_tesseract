@@ -94,6 +94,7 @@ class DLLSYM PDBLK               //page block
     void move(                    // reposition block
               const ICOORD vec);  // by vector
 
+#ifndef GRAPHICS_DISABLED
     void plot(                 //draw histogram
               ScrollView* window,   //window to draw in
               inT32 serial,    //serial number
@@ -102,6 +103,7 @@ class DLLSYM PDBLK               //page block
     void show(                 //show image
               IMAGE *image,    //image to show
               ScrollView* window);  //window to show in
+#endif
 
     PDBLK & operator= (          //assignment
       const PDBLK & source);     //from this

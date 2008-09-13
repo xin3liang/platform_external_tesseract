@@ -20,7 +20,9 @@
 #ifndef           POUTLINE_H
 #define           POUTLINE_H
 
+#ifndef GRAPHICS_DISABLED
 #include          "scrollview.h"
+#endif
 #include          "polyvert.h"
 #include          "rect.h"
 #include          "blckerr.h"
@@ -84,9 +86,11 @@ class OUTLINE:public ELIST_LINK
     void rotate(               // rotate outline
         const FCOORD vector);  // by fcoord
 
+#ifndef GRAPHICS_DISABLED
     void plot(                 //draw one
               ScrollView* window,   //window to draw in
               ScrollView::Color colour);  //colour to draw it
+#endif
 
     void prep_serialise() {  //set ptrs to counts
       outline.prep_serialise ();

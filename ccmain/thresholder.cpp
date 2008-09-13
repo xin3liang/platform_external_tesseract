@@ -226,11 +226,6 @@ void ImageThresholder::ThresholdToPix(Pix** pix) {
   }
 }
 
-// Common initialization shared between SetImage methods.
-void ImageThresholder::Init() {
-  SetRectangle(0, 0, image_width_, image_height_);
-}
-
 // Get a clone/copy of the source image rectangle.
 // The returned Pix must be pixDestroyed.
 // This function will be used in the future by the page layout analysis, and
@@ -255,6 +250,11 @@ Pix* ImageThresholder::GetPixRect() {
   return raw_pix;
 }
 #endif
+
+// Common initialization shared between SetImage methods.
+void ImageThresholder::Init() {
+  SetRectangle(0, 0, image_width_, image_height_);
+}
 
 // Otsu threshold the rectangle, taking everything except the image buffer
 // pointer from the class, to the output IMAGE.

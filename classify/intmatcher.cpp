@@ -22,7 +22,9 @@
 #include "intmatcher.h"
 #include "tordvars.h"
 #include "callcpp.h"
+#ifndef GRAPHICS_DISABLED
 #include "scrollview.h"
+#endif
 #include "globals.h"
 #include "classify.h"
 #include <math.h>
@@ -1235,6 +1237,7 @@ int Debug) {
   int NumProtos;
   register int Temp;
 
+#ifndef GRAPHICS_DISABLED
   extern ScrollView *IntMatchWindow;
 
   if (IntMatchWindow == NULL) {
@@ -1242,6 +1245,7 @@ int Debug) {
       520, 520,
       -130.0, 130.0, -130.0, 130.0);
   }
+#endif
   NumProtos = NumIntProtosIn (ClassTemplate);
 
   for (ProtoSetIndex = 0; ProtoSetIndex < NumProtoSetsIn (ClassTemplate);

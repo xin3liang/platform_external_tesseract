@@ -25,7 +25,9 @@
 #include          "bits16.h"
 #include          "rect.h"
 #include          "blckerr.h"
+#ifndef GRAPHICS_DISABLED
 #include          "scrollview.h"
+#endif
 
 #define INTERSECTING    MAX_INT16//no winding number
 
@@ -137,9 +139,11 @@ class DLLSYM C_OUTLINE:public ELIST_LINK
     void move(                    // reposition outline
               const ICOORD vec);  // by vector
 
+#ifndef GRAPHICS_DISABLED
     void plot(                       //draw one
               ScrollView* window,         //window to draw in
               ScrollView::Color colour) const;  //colour to draw it
+#endif
 
     void prep_serialise() {  //set ptrs to counts
       children.prep_serialise ();

@@ -60,6 +60,7 @@ make_toggle_var (blob_pause, 0, make_blob_pause,
  * Macro to display blob in a window.
  **********************************************************************/
 void display_blob(TBLOB *blob, C_COL color) {
+#ifndef GRAPHICS_DISABLED
   /* Size of drawable */
   if (blob_window == NULL) {
     blob_window = c_create_window ("Blobs", 520, 10,
@@ -70,6 +71,7 @@ void display_blob(TBLOB *blob, C_COL color) {
   }
 
   render_blob(blob_window, blob, color);
+#endif
 }
 
 
@@ -114,13 +116,17 @@ void render_edgepts(void *window, EDGEPT *edgept, C_COL color) {
   if (!edgept)
     return;
 
+#ifndef GRAPHICS_DISABLED
   c_line_color_index(window, color);
   c_move(window, x, y);
+#endif
   do {
     this_edge = this_edge->next;
     x = this_edge->pos.x;
     y = this_edge->pos.y;
+#ifndef GRAPHICS_DISABLED
     c_draw(window, x, y);
+#endif
   }
   while (edgept != this_edge);
 }

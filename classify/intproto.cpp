@@ -25,7 +25,9 @@
 #include "emalloc.h"
 #include "const.h"
 #include "ndminx.h"
+#ifndef GRAPHICS_DISABLED
 #include "svmnode.h"
+#endif
 #include "adaptmatch.h"
 #include "globals.h"
 #include "classify.h"

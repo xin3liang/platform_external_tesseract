@@ -166,7 +166,7 @@ class TessBaseAPI {
   // Note that Tesseract takes ownership of the Thresholder and will
   // delete it when it it is replaced or the API is destructed.
   void SetThresholder(ImageThresholder* thresholder) {
-    if (thresholder_ != NULL)
+    if (thresholder_ != 0)
       delete thresholder_;
     thresholder_ = thresholder;
     ClearResults();

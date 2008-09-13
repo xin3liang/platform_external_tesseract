@@ -3,7 +3,9 @@
 //
 
 #include "svshowim.h"
+#ifndef GRAPHICS_DISABLED
 #include "scrollview.h"
+#endif
 #ifdef HAVE_CONFIG_H
 #include "config_auto.h"
 #endif

@@ -32,7 +32,9 @@
 #include <assert.h>
 #include <math.h>
 
+#ifndef FST_DISABLED
 #include "fstmodel.h"
+#endif
 
 #include "const.h"
 
@@ -104,7 +106,9 @@ BOOL_VAR(doc_dict_enable, 1, "Enable Document Dictionary ");
 BOOL_VAR(ngram_permuter_activated, FALSE,
          "Activate character-level n-gram-based permuter");
 
+#ifndef FST_DISABLED
 BOOL_VAR(fst_activated, FALSE, "Activate fst");
+#endif
 
 int permute_only_top = 0;
 
@@ -1043,6 +1047,7 @@ void Dict::init_permute() {
   name = getImage()->getCCUtil()->language_data_path_prefix;
   name += "user-words";
   read_word_list(name.string(), user_words, MAX_USER_EDGES, USER_RESERVED_EDGES);
+#ifndef FST_DISABLED
   if (fst_activated) {
     STRING name;
     name = getImage()->getCCUtil()->language_data_path_prefix;
@@ -1050,6 +1055,7 @@ void Dict::init_permute() {
     LanguageModel::Instance()->InitWithLanguage(name.string());
     letter_is_okay_ = &tesseract::Dict::fst_letter_is_okay;
   }
+#endif
 }
 
 void Dict::end_permute() {

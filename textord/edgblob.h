@@ -20,7 +20,9 @@
 #ifndef           EDGBLOB_H
 #define           EDGBLOB_H
 
+#ifndef GRAPHICS_DISABLED
 #include          "scrollview.h"
+#endif
 #include          "varable.h"
 #include          "img.h"
 #include          "ocrblock.h"

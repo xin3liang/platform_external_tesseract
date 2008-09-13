@@ -49,7 +49,7 @@
 #define CTRL_TAB        '\011'   //tab
 #define CTRL_NEWLINE      '\012' //newline
 #define CTRL_HARDLINE   '\015'   //cr
-int NO_BLOCK = 0;                //don't output block information
+extern int NO_BLOCK;
 inT16 XOFFSET = 0;               //the image can be a part of bigger picture and we want to have the original coordinates
 inT16 YOFFSET = 0;
 

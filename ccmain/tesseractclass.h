@@ -172,8 +172,10 @@ class Tesseract : public Wordrec {
   //// pgedit.h //////////////////////////////////////////////////////////
   SVMenuNode *build_menu_new();
   void pgeditor_main(BLOCK_LIST *blocks);
+#ifndef GRAPHICS_DISABLED
   void process_image_event( // action in image win
                            const SVEvent &event);
+#endif
   void pgeditor_read_file(                   // of serialised file
                           STRING &filename,
                           BLOCK_LIST *blocks  // block list to add to

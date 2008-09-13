@@ -27,7 +27,9 @@
 ----------------------------------------------------------------------*/
 #include "plotseg.h"
 #include "callcpp.h"
+#ifndef GRAPHICS_DISABLED
 #include "scrollview.h"
+#endif
 #include "tessclas.h"
 #include "blobs.h"
 #include "debug.h"

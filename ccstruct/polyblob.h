@@ -49,10 +49,12 @@ class PBLOB:public ELIST_LINK
     void baseline_denormalise(                        //denormalise
                               const DENORM *denorm);  //antidote
 
+#ifndef GRAPHICS_DISABLED
     void plot(                       //draw one
               ScrollView* window,         //window to draw in
               ScrollView::Color blob_colour,    //for outer bits
               ScrollView::Color child_colour);  //for holes
+#endif
 
     void move(                    // reposition blob
               const FCOORD vec);  // by FLOAT vector
