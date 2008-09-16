@@ -1551,8 +1551,11 @@ void Tesseract::set_word_fonts(
                                  // character iterator
   BLOB_CHOICE_LIST_C_IT char_it = blob_choices;
   BLOB_CHOICE_IT choice_it;      // choice iterator
-  STATS fonts(0, get_fontinfo_table().size() ?
-              get_fontinfo_table().size() : 32);  // font counters
+  int fontinfo_size = get_fontinfo_table().size();
+  int fontset_size = get_fontset_table().size();
+  if (fontinfo_size == 0 || fontset_size == 0)
+    return;
+  STATS fonts(0, fontinfo_size);  // font counters
 
   word->italic = 0;
   word->bold = 0;
@@ -1566,51 +1569,31 @@ void Tesseract::set_word_fonts(
         config = choice_it.data()->config();
         int class_id = choice_it.data()->unichar_id();
         int font_set_id = PreTrainedTemplates->Class[class_id]->font_set_id;
-        if (tessedit_debug_fonts)
-          tprintf("%s(%d=%d%c%c)", unicharset.id_to_unichar(choice_char_id),
-                  config, (config & 31) >> 2,
-                  config & 2 ? 'N' : 'B', config & 1 ? 'N' : 'I');
-        if (tessedit_debug_fonts && config >= 0 && font_set_id >= 0) {
-          const char* fontname;
-          if (get_fontset_table().get(font_set_id).size < config) {
-            fontname = "Unknown";
-          } else {
-            fontname = get_fontinfo_table().get(
-                get_fontset_table().get(font_set_id).configs[config]).name;
+        if (font_set_id >= 0 && config >= 0 && font_set_id < fontset_size) {
+          FontSet font_set = get_fontset_table().get(font_set_id);
+          if (tessedit_debug_fonts) {
+            tprintf("%s(%d=%d%c%c)", unicharset.id_to_unichar(choice_char_id),
+                    config, (config & 31) >> 2,
+                    config & 2 ? 'N' : 'B', config & 1 ? 'N' : 'I');
+            const char* fontname;
+            if (config >= font_set.size) {
+              fontname = "Unknown";
+            } else {
+              fontname = get_fontinfo_table().get(
+                font_set.configs[config]).name;
+            }
+            tprintf("%s(%d,%d=%s)\n",
+                    unicharset.id_to_unichar(choice_it.data()->unichar_id()),
+                    font_set_id, config, fontname);
           }
-          tprintf("%s(%d,%d=%s)\n",
-                  unicharset.id_to_unichar(choice_it.data()->unichar_id()),
-                  font_set_id, config, fontname);
-        }
-
-        if (font_set_id >= 0 && config >= 0) {
-          int fontinfo_id = get_fontset_table().get(
-              font_set_id).configs[config];
-          FontInfo fi =
-              get_fontinfo_table().get(fontinfo_id);
-          word->italic += fi.is_italic();
-          word->bold += fi.is_bold();
-          fonts.add(fontinfo_id, 1);
-        } else if (config >= 0) {
-          config &= 31;
-          word->italic += config & 1 ? -1 : 1;
-          word->bold += config & 2 ? -1 : 1;
-          if (config < 4 || config > 7) {
-            int val = -1;
-            if (config < 4)
-              val = 2;
-            else if (config < 12)
-              val = 0;
-            else if (config < 16)
-              val = 3;
-            else if (config < 20)
-              val = 4;
-            else if (config < 24)
-              val = 5;
-            else if (config < 32)
-              val = 2;
-
-            fonts.add (val, 1);
+          if (config < font_set.size) {
+            int fontinfo_id = font_set.configs[config];
+            if (fontinfo_id < fontinfo_size) {
+              FontInfo fi = get_fontinfo_table().get(fontinfo_id);
+              word->italic += fi.is_italic();
+              word->bold += fi.is_bold();
+              fonts.add(fontinfo_id, 1);
+            }
           }
         }
         break;
@@ -1633,11 +1616,11 @@ void Tesseract::set_word_fonts(
           config = choice_it.data()->config();
           int class_id = choice_it.data()->unichar_id();
           int font_set_id = PreTrainedTemplates->Class[class_id]->font_set_id;
-          if (font_set_id >= 0 && config >= 0) {
+          if (font_set_id >= 0 && config >= 0 && font_set_id < fontset_size) {
             int fontinfo_id = get_fontset_table().get(font_set_id).
                 configs[config];
-            FontInfo fi = fontinfo_table_.get(fontinfo_id);
-            if (fontinfo_id == word->font1) {
+            if (fontinfo_id == word->font1 && fontinfo_id < fontinfo_size) {
+              FontInfo fi = fontinfo_table_.get(fontinfo_id);
               word->italic += fi.is_italic();
               word->bold += fi.is_bold();
             }

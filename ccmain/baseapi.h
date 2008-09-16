@@ -297,6 +297,7 @@ class TessBaseAPI {
  protected:
   Tesseract*  tesseract_;          // The underlying data object.
   ImageThresholder* thresholder_;  // The image thresholding module.
+  bool threshold_done_;            // The image has been passed to page_image.
   BLOCK_LIST* block_list_;         // The page layout.
   PAGE_RES*   page_res_;           // The page-level data.
   STRING*     input_file_;         // Name used by training code.

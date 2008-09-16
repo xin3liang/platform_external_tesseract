@@ -21,6 +21,7 @@
 #include "float2int.h"
 #include "normmatch.h"
 #include "mfoutline.h"
+#include "classify.h"
 #include "picofeat.h"
 
 #define MAX_INT_CHAR_NORM (INT_CHAR_NORM_RANGE - 1)
@@ -29,6 +30,8 @@
               Public Code
 ----------------------------------------------------------------------------**/
 /*---------------------------------------------------------------------------*/
+namespace tesseract {
+
 void ClearCharNormArray(INT_TEMPLATES Templates,
                         CLASS_NORMALIZATION_ARRAY CharNormArray) {
 /*
@@ -53,9 +56,9 @@ void ClearCharNormArray(INT_TEMPLATES Templates,
 
 
 /*---------------------------------------------------------------------------*/
-void ComputeIntCharNormArray(FEATURE NormFeature,
-                             INT_TEMPLATES Templates,
-                             CLASS_NORMALIZATION_ARRAY CharNormArray) {
+void Classify::ComputeIntCharNormArray(
+  FEATURE NormFeature, INT_TEMPLATES Templates,
+  CLASS_NORMALIZATION_ARRAY CharNormArray) {
 /*
  **	Parameters:
  **		NormFeature	character normalization feature
@@ -84,9 +87,9 @@ void ComputeIntCharNormArray(FEATURE NormFeature,
 
     CharNormArray[i] = NormAdjust;
   }
-
 }                                /* ComputeIntCharNormArray */
 
+}  // namespace tesseract
 
 /*---------------------------------------------------------------------------*/
 void ComputeIntFeatures(FEATURE_SET Features, INT_FEATURE_ARRAY IntFeatures) {

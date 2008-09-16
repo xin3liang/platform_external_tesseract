@@ -82,6 +82,7 @@ TessBaseAPI::TessBaseAPI()
     // A constructor of a derived API,  SetThresholder(), or
     // created implicitly when used in InternalSetImage.
     thresholder_(NULL),
+    threshold_done_(false),
     block_list_(NULL),
     page_res_(NULL),
     input_file_(NULL),
@@ -282,7 +283,7 @@ void TessBaseAPI::SetRectangle(int left, int top, int width, int height) {
 Pix* TessBaseAPI::GetThresholdedImage() {
   if (tesseract_ == NULL)
     return NULL;
-  if (page_res_ == NULL)
+  if (!threshold_done_)
     Threshold();
   return page_image.ToPix();
 }
@@ -316,8 +317,10 @@ int TessBaseAPI::Recognize(struct ETEXT_STRUCT* monitor) {
     tprintf("Please call SetImage before attempting recognition.");
     return -1;
   }
-  ClearResults();
-  Threshold();
+  if (page_res_ != NULL)
+    ClearResults();
+  if (!threshold_done_)
+    Threshold();
   if (FindLines() != 0)
     return -1;
   if (tesseract_->tessedit_resegment_from_boxes)
@@ -667,7 +670,7 @@ int TessBaseAPI::IsValidWord(const char *word) {
 
 
 bool TessBaseAPI::GetTextDirection(int* out_offset, float* out_slope) {
-  if (thresholder_ != NULL)
+  if (thresholder_ != NULL && !threshold_done_)
     Threshold();
   if (page_res_ == NULL)
     FindLines();
@@ -744,6 +747,7 @@ void TessBaseAPI::Threshold() {
   thresholder_->GetImageSizes(&rect_left_, &rect_top_,
                               &rect_width_, &rect_height_,
                               &image_width_, &image_height_);
+  threshold_done_ = true;
 }
 
 // Find lines from the image making the BLOCK_LIST.
@@ -752,8 +756,10 @@ int TessBaseAPI::FindLines() {
   // component analysis and text line creation.
   if (input_file_ == NULL)
     input_file_ = new STRING(kInputFile);
-  if (tesseract_ == NULL)
+  if (tesseract_ == NULL) {
     tesseract_ = new Tesseract;
+    tesseract_->InitAdaptiveClassifier();
+  }
 #ifdef HAVE_LIBLEPT
   tesseract_->pgeditor_read_file(*input_file_, block_list_);
 #else
@@ -764,6 +770,7 @@ int TessBaseAPI::FindLines() {
 
 // Delete the pageres and clear the block list ready for a new page.
 void TessBaseAPI::ClearResults() {
+  threshold_done_ = false;
   if (page_res_ != NULL) {
     delete page_res_;
     page_res_ = NULL;
