@@ -56,6 +56,11 @@
 #include "permute.h"
 #include "otsuthr.h"
 #include "osdetect.h"
+#ifndef HAVE_LIBLEPT
+#include "pageseg.h"
+#include "blread.h"
+#endif//HAVE_LIBLEPT
+
 
 namespace tesseract {
 
@@ -321,7 +326,7 @@ int TessBaseAPI::Recognize(struct ETEXT_STRUCT* monitor) {
 
   page_res_ = new PAGE_RES(block_list_);
   if (interactive_mode) {
-#ifndef GRAPHICS_DISABLED //FIXME: does this depend on graphics?
+#ifdef HAVE_LIBLEPT
     tesseract_->pgeditor_main(block_list_);
 #endif
   } else if (tesseract_->tessedit_train_from_boxes) {
@@ -709,6 +714,30 @@ bool TessBaseAPI::InternalSetImage() {
   return true;
 }
 
+#ifndef HAVE_LIBLEPT
+namespace tesseract {
+void pgeditor_read_file(STRING &filename,
+                        BLOCK_LIST *blocks,  // block list to add to
+			Tesseract *tess)
+{
+  STRING name = filename;        //truncated name
+  const char *lastdot;           //of name
+  TO_BLOCK_LIST land_blocks, port_blocks;
+  TBOX page_box;
+
+  lastdot = strrchr (name.string (), '.');
+  if (lastdot != NULL)
+    name[lastdot-name.string()] = '\0';
+  if (!read_pd_file (name, page_image.get_xsize (), page_image.get_ysize (),
+                     blocks)) {
+    segment_page(blocks);
+  }
+  find_components(blocks, &land_blocks, &port_blocks, &page_box);
+  textord_page(page_box.topright(), blocks, &land_blocks, &port_blocks, tess);
+}
+}
+#endif//HAVE_LIBLEPT
+
 // Run the thresholder to make the thresholded image.
 void TessBaseAPI::Threshold() {
   thresholder_->ThresholdToIMAGE(&page_image);
@@ -725,8 +754,10 @@ int TessBaseAPI::FindLines() {
     input_file_ = new STRING(kInputFile);
   if (tesseract_ == NULL)
     tesseract_ = new Tesseract;
-#ifndef GRAPHICS_DISABLED // FIXME: does this depend on graphics really?
+#ifdef HAVE_LIBLEPT
   tesseract_->pgeditor_read_file(*input_file_, block_list_);
+#else
+  tesseract::pgeditor_read_file(*input_file_, block_list_, tesseract_);
 #endif
   return 0;
 }
