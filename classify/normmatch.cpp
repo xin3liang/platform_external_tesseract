@@ -58,8 +58,6 @@ NORM_PROTOS *ReadNormProtos(FILE *File);
 /**----------------------------------------------------------------------------
         Global Data Definitions and Declarations
 ----------------------------------------------------------------------------**/
-/* global data structure to hold char normalization protos */
-static NORM_PROTOS *NormProtos;
 
 /* name of file containing char normalization protos */
 static const char *NormProtoFile = NORM_PROTO_FILE;
@@ -73,7 +71,9 @@ make_float_var (NormAdjCurl, 2.0, MakeNormAdjCurl,
               Public Code
 ----------------------------------------------------------------------------**/
 /*---------------------------------------------------------------------------*/
-FLOAT32 ComputeNormMatch(CLASS_ID ClassId, FEATURE Feature, BOOL8 DebugMatch) {
+namespace tesseract {
+FLOAT32 Classify::ComputeNormMatch(CLASS_ID ClassId, FEATURE Feature,
+                                   BOOL8 DebugMatch) {
 /*
  **	Parameters:
  **		ClassId		id of class to match against
@@ -142,7 +142,6 @@ FLOAT32 ComputeNormMatch(CLASS_ID ClassId, FEATURE Feature, BOOL8 DebugMatch) {
 
 
 /*---------------------------------------------------------------------------*/
-namespace tesseract {
 void Classify::GetNormProtos() {
 /*
  **	Parameters: none
@@ -165,9 +164,8 @@ void Classify::GetNormProtos() {
   fclose(File);
 
 }                                /* GetNormProtos */
-}  // namespace tesseract
 
-void FreeNormProtos() {
+void Classify::FreeNormProtos() {
   if (NormProtos != NULL) {
     for (int i = 0; i < NormProtos->NumProtos; i++)
       FreeProtoList(&NormProtos->Protos[i]);
@@ -177,6 +175,7 @@ void FreeNormProtos() {
     NormProtos = NULL;
   }
 }
+}  // namespace tesseract
 
 /*---------------------------------------------------------------------------*/
 void InitNormProtoVars() {

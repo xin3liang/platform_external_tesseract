@@ -26,6 +26,7 @@
 #include "fxdefs.h"
 #include "intmatcher.h"
 #include "ratngs.h"
+#include "ocrfeatures.h"
 #include "unicity_table.h"
 
 class WERD_CHOICE;
@@ -55,7 +56,9 @@ class Classify : public CCStruct {
   void WriteAdaptedTemplates(FILE *File, ADAPT_TEMPLATES Templates);
   ADAPT_TEMPLATES ReadAdaptedTemplates(FILE *File);
   /* normmatch.cpp ************************************************************/
+  FLOAT32 ComputeNormMatch(CLASS_ID ClassId, FEATURE Feature, BOOL8 DebugMatch);
   void GetNormProtos();
+  void FreeNormProtos();
   NORM_PROTOS *ReadNormProtos(FILE *File);
   /* protos.cpp ***************************************************************/
   void ReadClassFile();
@@ -108,6 +111,12 @@ class Classify : public CCStruct {
                       LINE_STATS * LineStats,
                       const WERD_CHOICE& BestChoice,
                       const WERD_CHOICE& BestRawChoice, FLOAT32 Thresholds[]);
+
+int MakeNewTemporaryConfig(ADAPT_TEMPLATES Templates,
+                           CLASS_ID ClassId,
+                           int NumFeatures,
+                           INT_FEATURE_ARRAY Features,
+                           FEATURE_SET FloatFeatures);
   void MakePermanent(ADAPT_TEMPLATES Templates,
                      CLASS_ID ClassId,
                      int ConfigId,
@@ -154,6 +163,23 @@ class Classify : public CCStruct {
   FLOAT32 GetBestRatingFor(TBLOB *Blob,
                            LINE_STATS *LineStats,
                            CLASS_ID ClassId);
+  int GetCharNormFeatures(TBLOB *Blob,
+                          LINE_STATS *LineStats,
+                          INT_TEMPLATES Templates,
+                          INT_FEATURE_ARRAY IntFeatures,
+                          CLASS_NORMALIZATION_ARRAY CharNormArray,
+                          inT32 *BlobLength);
+  int GetIntCharNormFeatures(TBLOB *Blob,
+                             LINE_STATS *LineStats,
+                             INT_TEMPLATES Templates,
+                             INT_FEATURE_ARRAY IntFeatures,
+                             CLASS_NORMALIZATION_ARRAY CharNormArray,
+                             inT32 *BlobLength);
+
+  /* float2int.cpp ************************************************************/
+  void ComputeIntCharNormArray(FEATURE NormFeature,
+                               INT_TEMPLATES Templates,
+                               CLASS_NORMALIZATION_ARRAY CharNormArray);
   /* intproto.cpp *************************************************************/
   INT_TEMPLATES ReadIntTemplates(FILE *File);
   void WriteIntTemplates(FILE *File, INT_TEMPLATES Templates,
@@ -173,6 +199,16 @@ class Classify : public CCStruct {
      templates */
   INT_TEMPLATES PreTrainedTemplates;
   ADAPT_TEMPLATES AdaptedTemplates;
+
+  /* create dummy proto and config masks for use with the built-in templates */
+  BIT_VECTOR AllProtosOn;
+  BIT_VECTOR PrunedProtos;
+  BIT_VECTOR AllConfigsOn;
+  BIT_VECTOR AllProtosOff;
+  BIT_VECTOR AllConfigsOff;
+  BIT_VECTOR TempProtoMask;
+  /* normmatch.cpp */
+  NORM_PROTOS *NormProtos;
   /* font detection ***********************************************************/
   UnicityTable<FontInfo> fontinfo_table_;
   UnicityTable<FontSet> fontset_table_;

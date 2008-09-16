@@ -176,6 +176,7 @@ UNICHAR_ID *GetAmbiguities(TBLOB *Blob,
                            LINE_STATS *LineStats,
                            CLASS_ID CorrectClass);
 
+namespace tesseract {
 int GetBaselineFeatures(TBLOB *Blob,
                         LINE_STATS *LineStats,
                         INT_TEMPLATES Templates,
@@ -183,14 +184,6 @@ int GetBaselineFeatures(TBLOB *Blob,
                         CLASS_NORMALIZATION_ARRAY CharNormArray,
                         inT32 *BlobLength);
 
-FLOAT32 GetBestRatingFor(TBLOB *Blob, LINE_STATS *LineStats, CLASS_ID ClassId);
-
-int GetCharNormFeatures(TBLOB *Blob,
-                        LINE_STATS *LineStats,
-                        INT_TEMPLATES Templates,
-                        INT_FEATURE_ARRAY IntFeatures,
-                        CLASS_NORMALIZATION_ARRAY CharNormArray,
-                        inT32 *BlobLength);
 
 int GetIntBaselineFeatures(TBLOB *Blob,
                            LINE_STATS *LineStats,
@@ -199,20 +192,9 @@ int GetIntBaselineFeatures(TBLOB *Blob,
                            CLASS_NORMALIZATION_ARRAY CharNormArray,
                            inT32 *BlobLength);
 
-int GetIntCharNormFeatures(TBLOB *Blob,
-                           LINE_STATS *LineStats,
-                           INT_TEMPLATES Templates,
-                           INT_FEATURE_ARRAY IntFeatures,
-                           CLASS_NORMALIZATION_ARRAY CharNormArray,
-                           inT32 *BlobLength);
+}  // namespace tesseract.
 
 void InitMatcherRatings(register FLOAT32 *Rating);
-
-int MakeNewTemporaryConfig(ADAPT_TEMPLATES Templates,
-                           CLASS_ID ClassId,
-                           int NumFeatures,
-                           INT_FEATURE_ARRAY Features,
-                           FEATURE_SET FloatFeatures);
 
 PROTO_ID MakeNewTempProtos(FEATURE_SET Features,
 int NumBadFeat,
@@ -245,196 +227,6 @@ void ShowBestMatchFor(TBLOB *Blob,
                       BOOL8 AdaptiveOn,
                       BOOL8 PreTrainedOn);
 
-/*
-#if defined(__STDC__) || defined(__cplusplus)
-# define    _ARGS(s) s
-#else
-# define    _ARGS(s) ()
-#endif*/
-
-/* /users/danj/wiseowl/src/danj/microfeatures/adaptmatch.c
-int AdaptableWord
-  _ARGS((TWERD *Word,
-  char *BestChoice,
-  char *BestRawChoice));
-
- void AdaptToChar
-  _ARGS((BLOB *Blob,
-  LINE_STATS *LineStats,
-  CLASS_ID ClassId,
-  FLOAT32 Threshold));
-
- void AdaptToPunc
-  _ARGS((BLOB *Blob,
-  LINE_STATS *LineStats,
-  CLASS_ID ClassId,
-  FLOAT32 Threshold));
-
- void AddNewResult
-  _ARGS((ADAPT_RESULTS *Results,
-  CLASS_ID ClassId,
-  FLOAT32 Rating,
-  int ConfigId));
-
- void AmbigClassifier
-  _ARGS((BLOB *Blob,
-  LINE_STATS *LineStats,
-  INT_TEMPLATES Templates,
-  char *Ambiguities,
-  ADAPT_RESULTS *Results));
-
- char *BaselineClassifier
-  _ARGS((BLOB *Blob,
-  LINE_STATS *LineStats,
-  ADAPT_TEMPLATES Templates,
-  ADAPT_RESULTS *Results));
-
- void CharNormClassifier
-  _ARGS((BLOB *Blob,
-  LINE_STATS *LineStats,
-  INT_TEMPLATES Templates,
-  ADAPT_RESULTS *Results));
-
- void ClassifyAsNoise
-  _ARGS((BLOB *Blob,
-  LINE_STATS *LineStats,
-  ADAPT_RESULTS *Results));
-
- int CompareCurrentRatings
-  _ARGS((CLASS_ID *Class1,
-  CLASS_ID *Class2));
-
- LIST ConvertMatchesToChoices
-  _ARGS((ADAPT_RESULTS *Results));
-
- void DebugAdaptiveClassifier
-  _ARGS((BLOB *Blob,
-  LINE_STATS *LineStats,
-  ADAPT_RESULTS *Results));
-
- void DoAdaptiveMatch
-  _ARGS((BLOB *Blob,
-  LINE_STATS *LineStats,
-  ADAPT_RESULTS *Results));
-
-  void GetAdaptThresholds
-  _ARGS((TWERD *Word,
-  LINE_STATS *LineStats,
-  char *BestChoice,
-  char *BestRawChoice,
-  FLOAT32 Thresholds []));
-
-int GetAdaptiveFeatures
-  _ARGS((BLOB *Blob,
-  LINE_STATS *LineStats,
-  INT_FEATURE_ARRAY IntFeatures,
-  CHAR_DESC *FloatFeatures));
-
- char *GetAmbiguities
-  _ARGS((BLOB *Blob,
-  LINE_STATS *LineStats,
-  CLASS_ID CorrectClass));
-
- int GetBaselineFeatures
-  _ARGS((BLOB *Blob,
-  LINE_STATS *LineStats,
-  INT_TEMPLATES Templates,
-  INT_FEATURE_ARRAY IntFeatures,
-  CLASS_NORMALIZATION_ARRAY CharNormArray,
-  FLOAT32 *BlobLength));
-
- FLOAT32 GetBestRatingFor
-  _ARGS((BLOB *Blob,
-  LINE_STATS *LineStats,
-  CLASS_ID ClassId));
-
- int GetCharNormFeatures
-  _ARGS((BLOB *Blob,
-  LINE_STATS *LineStats,
-  INT_TEMPLATES Templates,
-  INT_FEATURE_ARRAY IntFeatures,
-  CLASS_NORMALIZATION_ARRAY CharNormArray,
-  FLOAT32 *BlobLength));
-
- int GetIntBaselineFeatures
-  _ARGS((BLOB *Blob,
-  LINE_STATS *LineStats,
-  INT_TEMPLATES Templates,
-  INT_FEATURE_ARRAY IntFeatures,
-  CLASS_NORMALIZATION_ARRAY CharNormArray,
-  FLOAT32 *BlobLength));
-
- int GetIntCharNormFeatures
-  _ARGS((BLOB *Blob,
-  LINE_STATS *LineStats,
-  INT_TEMPLATES Templates,
-  INT_FEATURE_ARRAY IntFeatures,
-  CLASS_NORMALIZATION_ARRAY CharNormArray,
-  FLOAT32 *BlobLength));
-
- void InitMatcherRatings
-  _ARGS((FLOAT32 *Rating));
-
-void InitAdaptedClass
-  _ARGS((BLOB *Blob,
-  LINE_STATS *LineStats,
-  CLASS_ID ClassId,
-  ADAPT_CLASS Class,
-  ADAPT_TEMPLATES Templates));
-
- void MakeNewTemporaryConfig
-  _ARGS((ADAPT_TEMPLATES Templates,
-  CLASS_ID ClassId,
-  int NumFeatures,
-  INT_FEATURE_ARRAY Features,
-  FEATURE_SET FloatFeatures));
-
- PROTO_ID MakeNewTempProtos
-  _ARGS((FEATURE_SET Features,
-  int NumBadFeat,
-  FEATURE_ID BadFeat [],
-  INT_CLASS IClass,
-  ADAPT_CLASS Class,
-  BIT_VECTOR TempProtoMask));
-
- void MakePermanent
-  _ARGS((ADAPT_TEMPLATES Templates,
-  CLASS_ID ClassId,
-  int ConfigId,
-  BLOB *Blob,
-  LINE_STATS *LineStats));
-
- int MakeTempProtoPerm
-  _ARGS((TEMP_PROTO TempProto,
-  PROTO_KEY *ProtoKey));
-
- int NumBlobsIn
-  _ARGS((TWERD *Word));
-
- int NumOutlinesInBlob
-  _ARGS((BLOB *Blob));
-
- void PrintAdaptiveMatchResults
-  _ARGS((FILE *File,
-  ADAPT_RESULTS *Results));
-
- void RemoveBadMatches
-  _ARGS((ADAPT_RESULTS *Results));
- void RemoveExtraPuncs
-  _ARGS((ADAPT_RESULTS *Results));
-
- void SetAdaptiveThreshold
-  _ARGS((FLOAT32 Threshold));
-
- void ShowBestMatchFor
-  _ARGS((BLOB *Blob,
-  LINE_STATS *LineStats,
-  CLASS_ID ClassId,
-  BOOL8 AdaptiveOn,
-  BOOL8 PreTrainedOn));
-
-#undef _ARGS
-*/
 
 /**----------------------------------------------------------------------------
         Global Data Definitions and Declarations
@@ -471,14 +263,6 @@ static const char *BuiltInTemplatesFile = BUILT_IN_TEMPLATES_FILE;
 static const char *BuiltInCutoffsFile = BUILT_IN_CUTOFFS_FILE;
 static CLASS_CUTOFF_ARRAY CharNormCutoffs;
 static CLASS_CUTOFF_ARRAY BaselineCutoffs;
-
-/* create dummy proto and config masks for use with the built-in templates */
-static BIT_VECTOR AllProtosOn;
-static BIT_VECTOR PrunedProtos;
-static BIT_VECTOR AllConfigsOn;
-static BIT_VECTOR AllProtosOff;
-static BIT_VECTOR AllConfigsOff;
-static BIT_VECTOR TempProtoMask;
 
 /* define control knobs for adaptive matcher */
 make_toggle_const(EnableAdaptiveMatcher, 1, MakeEnableAdaptiveMatcher);
@@ -799,24 +583,26 @@ void Classify::EndAdaptiveClassifier() {
     AdaptedTemplates = NULL;
   }
 
-  if (PreTrainedTemplates == NULL)
-    return;  // This function isn't safe to run twice.
+  if (PreTrainedTemplates != NULL) {
+    free_int_templates(PreTrainedTemplates);
+    PreTrainedTemplates = NULL;
+  }
   getDict().EndDangerousAmbigs();
   FreeNormProtos();
-  free_int_templates(PreTrainedTemplates);
-  PreTrainedTemplates = NULL;
-  FreeBitVector(AllProtosOn);
-  FreeBitVector(PrunedProtos);
-  FreeBitVector(AllConfigsOn);
-  FreeBitVector(AllProtosOff);
-  FreeBitVector(AllConfigsOff);
-  FreeBitVector(TempProtoMask);
-  AllProtosOn = NULL;
-  PrunedProtos = NULL;
-  AllConfigsOn = NULL;
-  AllProtosOff = NULL;
-  AllConfigsOff = NULL;
-  TempProtoMask = NULL;
+  if (AllProtosOn != NULL) {
+    FreeBitVector(AllProtosOn);
+    FreeBitVector(PrunedProtos);
+    FreeBitVector(AllConfigsOn);
+    FreeBitVector(AllProtosOff);
+    FreeBitVector(AllConfigsOff);
+    FreeBitVector(TempProtoMask);
+    AllProtosOn = NULL;
+    PrunedProtos = NULL;
+    AllConfigsOn = NULL;
+    AllProtosOff = NULL;
+    AllConfigsOff = NULL;
+    TempProtoMask = NULL;
+  }
 }                                /* EndAdaptiveClassifier */
 
 
@@ -848,82 +634,78 @@ void Classify::InitAdaptiveClassifier() {
  **                         Exceptions: none
  **                         History: Mon Mar 11 12:49:34 1991, DSJ, Created.
 */
-  int i;
-  FILE *File;
-  STRING Filename;
-
   if (!EnableAdaptiveMatcher)
     return;
-  if (PreTrainedTemplates != NULL)
+  if (AllProtosOn != NULL)
     EndAdaptiveClassifier();  // Don't leak with multiple inits.
 
-  Filename = language_data_path_prefix;
-  Filename += BuiltInTemplatesFile;
-  #ifndef SECURE_NAMES
-  //      cprintf( "\nReading built-in templates from %s ...\n",
-  //              Filename.string());
-  fflush(stdout);
-  #endif
+  // If there is no language_data_path_prefix, the classifier will be
+  // adaptive only.
+  if (language_data_path_prefix.length() > 0) {
+    FILE *File;
+    STRING Filename;
 
-  #ifdef __UNIX__
-  File = Efopen (Filename.string(), "r");
-  #else
-  File = Efopen (Filename.string(), "rb");
-  #endif
-  PreTrainedTemplates = ReadIntTemplates (File);
-  fclose(File);
+    Filename = language_data_path_prefix;
+    Filename += BuiltInTemplatesFile;
 
-  Filename = language_data_path_prefix;
-  Filename += BuiltInCutoffsFile;
-  #ifndef SECURE_NAMES
-  //      cprintf( "\nReading built-in pico-feature cutoffs from %s ...\n",
-  //              Filename);
-  //      fflush(stdout);
-  #endif
-  ReadNewCutoffs (Filename.string(), CharNormCutoffs);
+#ifdef __UNIX__
+    File = Efopen(Filename.string(), "r");
+#else
+    File = Efopen(Filename.string(), "rb");
+#endif
+    PreTrainedTemplates = ReadIntTemplates(File);
+    fclose(File);
 
-  GetNormProtos();
+    Filename = language_data_path_prefix;
+    Filename += BuiltInCutoffsFile;
+    ReadNewCutoffs(Filename.string(), CharNormCutoffs);
+
+    GetNormProtos();
+  }
 
   InitIntegerMatcher();
   InitIntegerFX();
 
-  AllProtosOn = NewBitVector (MAX_NUM_PROTOS);
-  PrunedProtos = NewBitVector (MAX_NUM_PROTOS);
-  AllConfigsOn = NewBitVector (MAX_NUM_CONFIGS);
-  AllProtosOff = NewBitVector (MAX_NUM_PROTOS);
-  AllConfigsOff = NewBitVector (MAX_NUM_CONFIGS);
-  TempProtoMask = NewBitVector (MAX_NUM_PROTOS);
-  set_all_bits (AllProtosOn, WordsInVectorOfSize (MAX_NUM_PROTOS));
-  set_all_bits (PrunedProtos, WordsInVectorOfSize (MAX_NUM_PROTOS));
-  set_all_bits (AllConfigsOn, WordsInVectorOfSize (MAX_NUM_CONFIGS));
-  zero_all_bits (AllProtosOff, WordsInVectorOfSize (MAX_NUM_PROTOS));
-  zero_all_bits (AllConfigsOff, WordsInVectorOfSize (MAX_NUM_CONFIGS));
+  AllProtosOn = NewBitVector(MAX_NUM_PROTOS);
+  PrunedProtos = NewBitVector(MAX_NUM_PROTOS);
+  AllConfigsOn = NewBitVector(MAX_NUM_CONFIGS);
+  AllProtosOff = NewBitVector(MAX_NUM_PROTOS);
+  AllConfigsOff = NewBitVector(MAX_NUM_CONFIGS);
+  TempProtoMask = NewBitVector(MAX_NUM_PROTOS);
+  set_all_bits(AllProtosOn, WordsInVectorOfSize(MAX_NUM_PROTOS));
+  set_all_bits(PrunedProtos, WordsInVectorOfSize(MAX_NUM_PROTOS));
+  set_all_bits(AllConfigsOn, WordsInVectorOfSize(MAX_NUM_CONFIGS));
+  zero_all_bits(AllProtosOff, WordsInVectorOfSize(MAX_NUM_PROTOS));
+  zero_all_bits(AllConfigsOff, WordsInVectorOfSize(MAX_NUM_CONFIGS));
 
   if (UsePreAdaptedTemplates) {
+    FILE *File;
+    STRING Filename;
+
     Filename = imagefile;
     Filename += ADAPT_TEMPLATE_SUFFIX;
-    File = fopen (Filename.string(), "rb");
-    if (File == NULL)
-      AdaptedTemplates = NewAdaptedTemplates (true);
-    else {
+    File = fopen(Filename.string(), "rb");
+    if (File == NULL) {
+      AdaptedTemplates = NewAdaptedTemplates(true);
+    } else {
       #ifndef SECURE_NAMES
-      cprintf ("\nReading pre-adapted templates from %s ...\n",
-               Filename.string());
+      cprintf("\nReading pre-adapted templates from %s ...\n",
+              Filename.string());
       fflush(stdout);
       #endif
-      AdaptedTemplates = ReadAdaptedTemplates (File);
-      cprintf ("\n");
+      AdaptedTemplates = ReadAdaptedTemplates(File);
+      cprintf("\n");
       fclose(File);
       PrintAdaptedTemplates(stdout, AdaptedTemplates);
 
-      for (i = 0; i < NumClassesIn (AdaptedTemplates->Templates); i++) {
+      for (int i = 0; i < NumClassesIn(AdaptedTemplates->Templates); i++) {
         BaselineCutoffs[i] = CharNormCutoffs[i];
       }
     }
   } else {
     if (AdaptedTemplates != NULL)
       free_adapted_templates(AdaptedTemplates);
-    AdaptedTemplates = NewAdaptedTemplates (true);
+    AdaptedTemplates = NewAdaptedTemplates(true);
   }
   old_enable_learning = EnableLearning;
 
@@ -2130,7 +1912,6 @@ UNICHAR_ID *Classify::GetAmbiguities(TBLOB *Blob,
   return (Ambiguities);
 
 }                              /* GetAmbiguities */
-}  // namespace tesseract
 
 /*---------------------------------------------------------------------------*/
 int GetBaselineFeatures(TBLOB *Blob,
@@ -2191,7 +1972,6 @@ int GetBaselineFeatures(TBLOB *Blob,
 
 }                              /* GetBaselineFeatures */
 
-namespace tesseract {
 FLOAT32 Classify::GetBestRatingFor(TBLOB *Blob,
                                    LINE_STATS *LineStats,
                                    CLASS_ID ClassId) {
@@ -2261,15 +2041,14 @@ FLOAT32 Classify::GetBestRatingFor(TBLOB *Blob,
   return (MIN (BLResult.Rating, CNResult.Rating));
 
 }                              /* GetBestRatingFor */
-}  // namespace tesseract
 
 /*---------------------------------------------------------------------------*/
-int GetCharNormFeatures(TBLOB *Blob,
-                        LINE_STATS *LineStats,
-                        INT_TEMPLATES Templates,
-                        INT_FEATURE_ARRAY IntFeatures,
-                        CLASS_NORMALIZATION_ARRAY CharNormArray,
-                        inT32 *BlobLength) {
+int Classify::GetCharNormFeatures(TBLOB *Blob,
+                                  LINE_STATS *LineStats,
+                                  INT_TEMPLATES Templates,
+                                  INT_FEATURE_ARRAY IntFeatures,
+                                  CLASS_NORMALIZATION_ARRAY CharNormArray,
+                                  inT32 *BlobLength) {
   /*
    **                           Parameters:
    **                           Blob
@@ -2365,12 +2144,12 @@ int GetIntBaselineFeatures(TBLOB *Blob,
 }                              /* GetIntBaselineFeatures */
 
 /*---------------------------------------------------------------------------*/
-int GetIntCharNormFeatures(TBLOB *Blob,
-                           LINE_STATS *LineStats,
-                           INT_TEMPLATES Templates,
-                           INT_FEATURE_ARRAY IntFeatures,
-                           CLASS_NORMALIZATION_ARRAY CharNormArray,
-                           inT32 *BlobLength) {
+int Classify::GetIntCharNormFeatures(TBLOB *Blob,
+                                     LINE_STATS *LineStats,
+                                     INT_TEMPLATES Templates,
+                                     INT_FEATURE_ARRAY IntFeatures,
+                                     CLASS_NORMALIZATION_ARRAY CharNormArray,
+                                     inT32 *BlobLength) {
   /*
    **                           Parameters:
    **                           Blob
@@ -2440,7 +2219,7 @@ int GetIntCharNormFeatures(TBLOB *Blob,
 }                              /* GetIntCharNormFeatures */
 
 /*---------------------------------------------------------------------------*/
-int MakeNewTemporaryConfig(ADAPT_TEMPLATES Templates,
+int Classify::MakeNewTemporaryConfig(ADAPT_TEMPLATES Templates,
                            CLASS_ID ClassId,
                            int NumFeatures,
                            INT_FEATURE_ARRAY Features,
@@ -2536,14 +2315,15 @@ int MakeNewTemporaryConfig(ADAPT_TEMPLATES Templates,
 
   return ConfigId;
 }                              /* MakeNewTemporaryConfig */
+}  // namespace tesseract
 
 /*---------------------------------------------------------------------------*/
 PROTO_ID
-MakeNewTempProtos (FEATURE_SET Features,
-                   int NumBadFeat,
-                   FEATURE_ID BadFeat[],
-                   INT_CLASS IClass,
-                   ADAPT_CLASS Class, BIT_VECTOR TempProtoMask) {
+MakeNewTempProtos(FEATURE_SET Features,
+                  int NumBadFeat,
+                  FEATURE_ID BadFeat[],
+                  INT_CLASS IClass,
+                  ADAPT_CLASS Class, BIT_VECTOR TempProtoMask) {
   /*
    **                           Parameters:
    **                           Features
@@ -2581,49 +2361,49 @@ MakeNewTempProtos (FEATURE_SET Features,
 
   for (ProtoStart = BadFeat, LastBad = ProtoStart + NumBadFeat;
        ProtoStart < LastBad; ProtoStart = ProtoEnd) {
-    F1 = FeatureIn (Features, *ProtoStart);
-    X1 = ParamOf (F1, PicoFeatX);
-    Y1 = ParamOf (F1, PicoFeatY);
-    A1 = ParamOf (F1, PicoFeatDir);
+    F1 = FeatureIn(Features, *ProtoStart);
+    X1 = ParamOf(F1, PicoFeatX);
+    Y1 = ParamOf(F1, PicoFeatY);
+    A1 = ParamOf(F1, PicoFeatDir);
 
     for (ProtoEnd = ProtoStart + 1,
-         SegmentLength = GetPicoFeatureLength ();
+         SegmentLength = GetPicoFeatureLength();
          ProtoEnd < LastBad;
-         ProtoEnd++, SegmentLength += GetPicoFeatureLength ()) {
-      F2 = FeatureIn (Features, *ProtoEnd);
-      X2 = ParamOf (F2, PicoFeatX);
-      Y2 = ParamOf (F2, PicoFeatY);
-      A2 = ParamOf (F2, PicoFeatDir);
+         ProtoEnd++, SegmentLength += GetPicoFeatureLength()) {
+      F2 = FeatureIn(Features, *ProtoEnd);
+      X2 = ParamOf(F2, PicoFeatX);
+      Y2 = ParamOf(F2, PicoFeatY);
+      A2 = ParamOf(F2, PicoFeatDir);
 
-      AngleDelta = fabs (A1 - A2);
+      AngleDelta = fabs(A1 - A2);
       if (AngleDelta > 0.5)
         AngleDelta = 1.0 - AngleDelta;
 
       if (AngleDelta > matcher_clustering_max_angle_delta ||
-          fabs (X1 - X2) > SegmentLength ||
-          fabs (Y1 - Y2) > SegmentLength)
+          fabs(X1 - X2) > SegmentLength ||
+          fabs(Y1 - Y2) > SegmentLength)
         break;
     }
 
-    F2 = FeatureIn (Features, *(ProtoEnd - 1));
-    X2 = ParamOf (F2, PicoFeatX);
-    Y2 = ParamOf (F2, PicoFeatY);
-    A2 = ParamOf (F2, PicoFeatDir);
+    F2 = FeatureIn(Features, *(ProtoEnd - 1));
+    X2 = ParamOf(F2, PicoFeatX);
+    Y2 = ParamOf(F2, PicoFeatY);
+    A2 = ParamOf(F2, PicoFeatDir);
 
-    Pid = AddIntProto (IClass);
+    Pid = AddIntProto(IClass);
     if (Pid == NO_PROTO)
       return (NO_PROTO);
 
-    TempProto = NewTempProto ();
+    TempProto = NewTempProto();
     Proto = &(TempProto->Proto);
 
     /* compute proto params - NOTE that Y_DIM_OFFSET must be used because
        ConvertProto assumes that the Y dimension varies from -0.5 to 0.5
        instead of the -0.25 to 0.75 used in baseline normalization */
-    ProtoLength (Proto) = SegmentLength;
-    ProtoAngle (Proto) = A1;
-    ProtoX (Proto) = (X1 + X2) / 2.0;
-    ProtoY (Proto) = (Y1 + Y2) / 2.0 - Y_DIM_OFFSET;
+    ProtoLength(Proto) = SegmentLength;
+    ProtoAngle(Proto) = A1;
+    ProtoX(Proto) = (X1 + X2) / 2.0;
+    ProtoY(Proto) = (Y1 + Y2) / 2.0 - Y_DIM_OFFSET;
     FillABC(Proto);
 
     TempProto->ProtoId = Pid;
@@ -2632,9 +2412,9 @@ MakeNewTempProtos (FEATURE_SET Features,
     ConvertProto(Proto, Pid, IClass);
     AddProtoToProtoPruner(Proto, Pid, IClass);
 
-    Class->TempProtos = push (Class->TempProtos, TempProto);
+    Class->TempProtos = push(Class->TempProtos, TempProto);
   }
-  return (NumIntProtosIn (IClass) - 1);
+  return (NumIntProtosIn(IClass) - 1);
 }                              /* MakeNewTempProtos */
 
 /*---------------------------------------------------------------------------*/
@@ -2668,7 +2448,7 @@ void Classify::MakePermanent(ADAPT_TEMPLATES Templates,
   PROTO_KEY ProtoKey;
 
   Class = Templates->Class[ClassId];
-  Config = TempConfigFor (Class, ConfigId);
+  Config = TempConfigFor(Class, ConfigId);
 
   MakeConfigPermanent(Class, ConfigId);
   if (Class->NumPermConfigs == 0)
@@ -2678,24 +2458,23 @@ void Classify::MakePermanent(ADAPT_TEMPLATES Templates,
   ProtoKey.Templates = Templates;
   ProtoKey.ClassId = ClassId;
   ProtoKey.ConfigId = ConfigId;
-  Class->TempProtos = delete_d (Class->TempProtos, &ProtoKey,
-                                MakeTempProtoPerm);
+  Class->TempProtos = delete_d(Class->TempProtos, &ProtoKey,
+                               MakeTempProtoPerm);
   FreeTempConfig(Config);
 
-  Ambigs = GetAmbiguities (Blob, LineStats, ClassId);
-  PermConfigFor (Class, ConfigId) = Ambigs;
+  Ambigs = GetAmbiguities(Blob, LineStats, ClassId);
+  PermConfigFor(Class, ConfigId) = Ambigs;
 
   if (LearningDebugLevel >= 1) {
-    cprintf ("Making config %d permanent with ambiguities '",
-             ConfigId, Ambigs);
+    cprintf("Making config %d permanent with ambiguities '",
+            ConfigId, Ambigs);
     for (UNICHAR_ID *AmbigsPointer = Ambigs;
          *AmbigsPointer >= 0; ++AmbigsPointer)
       cprintf("%s", unicharset.id_to_unichar(*AmbigsPointer));
     cprintf("'.\n");
   }
-
 }                              /* MakePermanent */
-} //  namespace tesseract
+}  // namespace tesseract
 
 /*---------------------------------------------------------------------------*/
 int MakeTempProtoPerm(void *item1,    //TEMP_PROTO    TempProto,

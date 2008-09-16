@@ -65,9 +65,17 @@ Classify::Classify()
       NewPermanentCallback(delete_callback_fs));
   AdaptedTemplates = NULL;
   PreTrainedTemplates = NULL;
+  AllProtosOn = NULL;
+  PrunedProtos = NULL;
+  AllConfigsOn = NULL;
+  AllProtosOff = NULL;
+  AllConfigsOff = NULL;
+  TempProtoMask = NULL;
+  NormProtos = NULL;
 }
 
 Classify::~Classify() {
+  EndAdaptiveClassifier();
 }
 
 }  // namespace tesseract
