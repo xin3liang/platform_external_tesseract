@@ -525,3 +525,34 @@ LOCAL_SHARED_LIBRARIES:= \
 	libtesseract_main
 
 include $(BUILD_EXECUTABLE)
+
+#
+# simple raw-YUV test.
+#
+
+include $(CLEAR_VARS)
+
+LOCAL_MODULE:= tesstest 
+
+LOCAL_SRC_FILES:= \
+	ccmain/test.cpp
+
+LOCAL_CFLAGS:= \
+	-DGRAPHICS_DISABLED	\
+	-DFST_DISABLED
+
+LOCAL_C_INCLUDES+= \
+	system/tesseract/ccutil		\
+	system/tesseract/ccstruct	\
+	system/tesseract/image		\
+	system/tesseract/dict		\
+	system/tesseract/classify	\
+	system/tesseract/wordrec	\
+	system/tesseract/cutil		\
+	system/tesseract/textord	\
+	system/tesseract/ccmain
+
+LOCAL_SHARED_LIBRARIES:= \
+	libtesseract_main
+
+include $(BUILD_EXECUTABLE)
