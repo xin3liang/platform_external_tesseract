@@ -70,8 +70,8 @@ int permutation_count;           // Used in metrics.cpp.
 // TODO(tkielbus) Choose a value for the MAX_NUM_EDGES constant
 // (or make it dynamic)
 #define MAX_NUM_EDGES          2000000
-#define MAX_DOC_EDGES          250000
-#define RESERVED_DOC_EDGES     10000
+#define MAX_DOC_EDGES          150
+#define RESERVED_DOC_EDGES     10
 #define MAX_USER_EDGES         50000
 #define USER_RESERVED_EDGES    2000
                                  /* Weights for adjustment */
@@ -100,7 +100,7 @@ double_VAR(segment_penalty_garbage, GARBAGE_STRING,
 
 BOOL_VAR(save_doc_words, 0, "Save Document Words");
 
-BOOL_VAR(doc_dict_enable, 1, "Enable Document Dictionary ");
+BOOL_VAR(doc_dict_enable, 0, "Enable Document Dictionary ");
 /* PREV DEFAULT 0 */
 
 BOOL_VAR(ngram_permuter_activated, FALSE,
