@@ -1380,6 +1380,7 @@ void Classify::MasterMatcher(INT_TEMPLATES templates,
                              ADAPT_RESULTS* final_results) {
   for (int c = 0; c < num_classes; c++) {
     CLASS_ID class_id = results[c].Class;
+#ifndef DISABLE_INTEGER_MATCHING
     INT_RESULT_STRUCT& int_result = results[c].IMResult;
     BIT_VECTOR protos = classes != NULL ? classes[class_id]->PermProtos
                                         : AllProtosOn;
@@ -1406,6 +1407,9 @@ void Classify::MasterMatcher(INT_TEMPLATES templates,
     if (int_result.Rating > WORST_POSSIBLE_RATING)
       int_result.Rating = WORST_POSSIBLE_RATING;
     AddNewResult(final_results, class_id, int_result.Rating, int_result.Config);
+#else
+    AddNewResult(final_results, class_id, results[c].Rating * 2, 0); 
+#endif
   }
   if (matcher_debug_level >= 2 || display_ratings > 1)
     cprintf("\n");

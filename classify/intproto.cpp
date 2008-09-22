@@ -1100,6 +1100,7 @@ INT_TEMPLATES Classify::ReadIntTemplates(FILE *File) {
     }
   }
 
+#ifndef DISABLE_INTEGER_MATCHING
   /* then read in each class */
   for (i = 0; i < NumClassesIn (Templates); i++) {
     /* first read in the high level struct for the class */
@@ -1230,7 +1231,7 @@ INT_TEMPLATES Classify::ReadIntTemplates(FILE *File) {
     this->fontinfo_table_.read(File, NewPermanentCallback(read_info), swap);
     this->fontset_table_.read(File, NewPermanentCallback(read_set), swap);
   }
-
+#endif
   return (Templates);
 }                                /* ReadIntTemplates */
 
