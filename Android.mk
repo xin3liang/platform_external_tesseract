@@ -33,7 +33,7 @@ LOCAL_SRC_FILES:= 		\
 	ccutil/ccutil.cpp
 
 LOCAL_C_INCLUDES+= \
-	system/tesseract/tesseract/ccutil
+	$(LOCAL_PATH)/ccutil
 
 LOCAL_MODULE:= libtesseract_cc_util
 
@@ -68,8 +68,8 @@ LOCAL_SRC_FILES:= 		\
 #LOCAL_CFLAGS:=-fno-short-enums
 
 LOCAL_C_INCLUDES+= \
-	system/tesseract/tesseract/cutil	\
-	system/tesseract/tesseract/ccutil
+	$(LOCAL_PATH)/cutil	\
+	$(LOCAL_PATH)/ccutil
 
 LOCAL_SHARED_LIBRARIES:= \
 	libtesseract_cc_util
@@ -98,8 +98,8 @@ LOCAL_SRC_FILES:= 		\
 LOCAL_CFLAGS:=-DGRAPHICS_DISABLED
 
 LOCAL_C_INCLUDES+= \
-	system/tesseract/tesseract/ccutil	\
-	system/tesseract/tesseract/image
+	$(LOCAL_PATH)/ccutil	\
+	$(LOCAL_PATH)/image
 
 LOCAL_SHARED_LIBRARIES:= \
 	libtesseract_cc_util
@@ -156,10 +156,10 @@ LOCAL_SRC_FILES:=		\
 LOCAL_CFLAGS:=-DGRAPHICS_DISABLED
 
 LOCAL_C_INCLUDES+= \
-	system/tesseract/tesseract/ccstruct \
-	system/tesseract/tesseract/ccutil	\
-	system/tesseract/tesseract/cutil	\
-	system/tesseract/tesseract/image
+	$(LOCAL_PATH)/ccstruct \
+	$(LOCAL_PATH)/ccutil	\
+	$(LOCAL_PATH)/cutil	\
+	$(LOCAL_PATH)/image
 
 LOCAL_SHARED_LIBRARIES:= \
 	libtesseract_cc_util \
@@ -183,11 +183,11 @@ LOCAL_CFLAGS:=-DGRAPHICS_DISABLED
 LOCAL_SRC_FILES:= pageseg/pageseg.cpp
 
 LOCAL_C_INCLUDES+= \
-	system/tesseract/tesseract/ccstruct \
-	system/tesseract/tesseract/ccutil \
-	system/tesseract/tesseract/ccmain \
-	system/tesseract/tesseract/image \
-	system/tesseract/tesseract/textord
+	$(LOCAL_PATH)/ccstruct \
+	$(LOCAL_PATH)/ccutil \
+	$(LOCAL_PATH)/ccmain \
+	$(LOCAL_PATH)/image \
+	$(LOCAL_PATH)/textord
 
 LOCAL_SHARED_LIBRARIES:= \
 	libtesseract_image \
@@ -230,11 +230,11 @@ LOCAL_CFLAGS+=-DFST_DISABLED
 LOCAL_CFLAGS+=-DDISABLE_DOC_DICT
 
 LOCAL_C_INCLUDES+= \
-	system/tesseract/tesseract/cutil		\
-	system/tesseract/tesseract/ccutil		\
-	system/tesseract/tesseract/ccstruct	\
-	system/tesseract/tesseract/image		\
-	system/tesseract/tesseract/dict
+	$(LOCAL_PATH)/cutil		\
+	$(LOCAL_PATH)/ccutil		\
+	$(LOCAL_PATH)/ccstruct	\
+	$(LOCAL_PATH)/image		\
+	$(LOCAL_PATH)/dict
 
 LOCAL_MODULE:= libtesseract_dict
 
@@ -291,12 +291,12 @@ LOCAL_SRC_FILES:= \
 	classify/xform2d.cpp
 
 LOCAL_C_INCLUDES+= \
-	system/tesseract/tesseract/cutil		\
-	system/tesseract/tesseract/ccutil		\
-	system/tesseract/tesseract/classify	\
-	system/tesseract/tesseract/ccstruct	\
-	system/tesseract/tesseract/image		\
-	system/tesseract/tesseract/dict
+	$(LOCAL_PATH)/cutil		\
+	$(LOCAL_PATH)/ccutil		\
+	$(LOCAL_PATH)/classify	\
+	$(LOCAL_PATH)/ccstruct	\
+	$(LOCAL_PATH)/image		\
+	$(LOCAL_PATH)/dict
 
 LOCAL_CFLAGS:=-DGRAPHICS_DISABLED
 #LOCAL_CFLAGS+=-DDISABLE_INTEGER_MATCHING
@@ -354,13 +354,13 @@ LOCAL_SRC_FILES:= \
 LOCAL_CFLAGS:=-DGRAPHICS_DISABLED
 
 LOCAL_C_INCLUDES+= \
-	system/tesseract/tesseract/cutil		\
-	system/tesseract/tesseract/ccstruct 	\
-	system/tesseract/tesseract/ccutil		\
-	system/tesseract/tesseract/cstruct 	\
-	system/tesseract/tesseract/classify	\
-	system/tesseract/tesseract/dict		\
-	system/tesseract/tesseract/image
+	$(LOCAL_PATH)/cutil		\
+	$(LOCAL_PATH)/ccstruct 	\
+	$(LOCAL_PATH)/ccutil		\
+	$(LOCAL_PATH)/cstruct 	\
+	$(LOCAL_PATH)/classify	\
+	$(LOCAL_PATH)/dict		\
+	$(LOCAL_PATH)/image
 
 LOCAL_SHARED_LIBRARIES:= \
 	libtesseract_globals \
@@ -389,15 +389,15 @@ LOCAL_SRC_FILES:= \
 	ccmain/tessvars.cpp
 
 LOCAL_C_INCLUDES+= \
-	system/tesseract/tesseract/wordrec	\
-	system/tesseract/tesseract/textord	\
-	system/tesseract/tesseract/ccstruct	\
-	system/tesseract/tesseract/classify	\
-	system/tesseract/tesseract/image		\
-	system/tesseract/tesseract/dict		\
-	system/tesseract/tesseract/cutil		\
-	system/tesseract/tesseract/pageseg	\
-	system/tesseract/tesseract/ccutil
+	$(LOCAL_PATH)/wordrec	\
+	$(LOCAL_PATH)/textord	\
+	$(LOCAL_PATH)/ccstruct	\
+	$(LOCAL_PATH)/classify	\
+	$(LOCAL_PATH)/image		\
+	$(LOCAL_PATH)/dict		\
+	$(LOCAL_PATH)/cutil		\
+	$(LOCAL_PATH)/pageseg	\
+	$(LOCAL_PATH)/ccutil
 
 LOCAL_SHARED_LIBRARIES:= \
 	libtesseract_image \
@@ -472,16 +472,16 @@ LOCAL_SRC_FILES+= \
 LOCAL_CFLAGS:=-DGRAPHICS_DISABLED
 
 LOCAL_C_INCLUDES+= \
-	system/tesseract/tesseract/ccmain		\
-	system/tesseract/tesseract/wordrec	\
-	system/tesseract/tesseract/textord	\
-	system/tesseract/tesseract/ccstruct	\
-	system/tesseract/tesseract/classify	\
-	system/tesseract/tesseract/image		\
-	system/tesseract/tesseract/dict		\
-	system/tesseract/tesseract/cutil		\
-	system/tesseract/tesseract/pageseg	\
-	system/tesseract/tesseract/ccutil
+	$(LOCAL_PATH)/ccmain		\
+	$(LOCAL_PATH)/wordrec	\
+	$(LOCAL_PATH)/textord	\
+	$(LOCAL_PATH)/ccstruct	\
+	$(LOCAL_PATH)/classify	\
+	$(LOCAL_PATH)/image		\
+	$(LOCAL_PATH)/dict		\
+	$(LOCAL_PATH)/cutil		\
+	$(LOCAL_PATH)/pageseg	\
+	$(LOCAL_PATH)/ccutil
 
 LOCAL_SHARED_LIBRARIES:= \
 	libtesseract_pageseg \
@@ -515,15 +515,15 @@ LOCAL_CFLAGS:= \
 	-DFST_DISABLED
 
 LOCAL_C_INCLUDES+= \
-	system/tesseract/tesseract/ccutil		\
-	system/tesseract/tesseract/ccstruct	\
-	system/tesseract/tesseract/image		\
-	system/tesseract/tesseract/dict		\
-	system/tesseract/tesseract/classify	\
-	system/tesseract/tesseract/wordrec	\
-	system/tesseract/tesseract/cutil		\
-	system/tesseract/tesseract/textord	\
-	system/tesseract/tesseract/ccmain
+	$(LOCAL_PATH)/ccutil		\
+	$(LOCAL_PATH)/ccstruct	\
+	$(LOCAL_PATH)/image		\
+	$(LOCAL_PATH)/dict		\
+	$(LOCAL_PATH)/classify	\
+	$(LOCAL_PATH)/wordrec	\
+	$(LOCAL_PATH)/cutil		\
+	$(LOCAL_PATH)/textord	\
+	$(LOCAL_PATH)/ccmain
 
 LOCAL_SHARED_LIBRARIES:= \
 	libtesseract_main
@@ -546,15 +546,15 @@ LOCAL_CFLAGS:= \
 	-DFST_DISABLED
 
 LOCAL_C_INCLUDES+= \
-	system/tesseract/tesseract/ccutil		\
-	system/tesseract/tesseract/ccstruct	\
-	system/tesseract/tesseract/image		\
-	system/tesseract/tesseract/dict		\
-	system/tesseract/tesseract/classify	\
-	system/tesseract/tesseract/wordrec	\
-	system/tesseract/tesseract/cutil		\
-	system/tesseract/tesseract/textord	\
-	system/tesseract/tesseract/ccmain
+	$(LOCAL_PATH)/ccutil		\
+	$(LOCAL_PATH)/ccstruct	\
+	$(LOCAL_PATH)/image		\
+	$(LOCAL_PATH)/dict		\
+	$(LOCAL_PATH)/classify	\
+	$(LOCAL_PATH)/wordrec	\
+	$(LOCAL_PATH)/cutil		\
+	$(LOCAL_PATH)/textord	\
+	$(LOCAL_PATH)/ccmain
 
 LOCAL_SHARED_LIBRARIES:= \
 	libtesseract_main
@@ -613,17 +613,17 @@ LOCAL_SRC_FILES:= \
 	helium/imageenhancer.cpp 
 
 LOCAL_C_INCLUDES:= \
-	system/tesseract/tesseract		\
-	system/tesseract/tesseract/ccmain         \
-	system/tesseract/tesseract/helium		\
-	system/tesseract/tesseract/ccutil		\
-	system/tesseract/tesseract/ccstruct	\
-	system/tesseract/tesseract/image		\
-	system/tesseract/tesseract/dict		\
-	system/tesseract/tesseract/classify	\
-	system/tesseract/tesseract/wordrec	\
-	system/tesseract/tesseract/cutil		\
-	system/tesseract/tesseract/textord	\
+	$(LOCAL_PATH)		\
+	$(LOCAL_PATH)/ccmain         \
+	$(LOCAL_PATH)/helium		\
+	$(LOCAL_PATH)/ccutil		\
+	$(LOCAL_PATH)/ccstruct	\
+	$(LOCAL_PATH)/image		\
+	$(LOCAL_PATH)/dict		\
+	$(LOCAL_PATH)/classify	\
+	$(LOCAL_PATH)/wordrec	\
+	$(LOCAL_PATH)/cutil		\
+	$(LOCAL_PATH)/textord	\
 
 LOCAL_SHARED_LIBRARIES:= \
 	libtesseract_image \
@@ -647,21 +647,21 @@ LOCAL_MODULE:= heliumtest
 LOCAL_SRC_FILES:= \
 	helium/test.cpp
 
-LOCAL_CFLAGS:= \
-	-DGRAPHICS_DISABLED	\
+LOCAL_CFLAGS:= 				\
+	-DGRAPHICS_DISABLED		\
 	-DFST_DISABLED
 
-LOCAL_C_INCLUDES+= \
-	system/tesseract/tesseract		\
-	system/tesseract/tesseract/ccutil		\
-	system/tesseract/tesseract/ccstruct	\
-	system/tesseract/tesseract/image		\
-	system/tesseract/tesseract/dict		\
-	system/tesseract/tesseract/classify	\
-	system/tesseract/tesseract/wordrec	\
-	system/tesseract/tesseract/cutil		\
-	system/tesseract/tesseract/textord	\
-	system/tesseract/tesseract/ccmain
+LOCAL_C_INCLUDES+= 			\
+	$(LOCAL_PATH)			\
+	$(LOCAL_PATH)/ccutil	\
+	$(LOCAL_PATH)/ccstruct	\
+	$(LOCAL_PATH)/image		\
+	$(LOCAL_PATH)/dict		\
+	$(LOCAL_PATH)/classify	\
+	$(LOCAL_PATH)/wordrec	\
+	$(LOCAL_PATH)/cutil		\
+	$(LOCAL_PATH)/textord	\
+	$(LOCAL_PATH)/ccmain
 
 LOCAL_SHARED_LIBRARIES:= \
 	libhelium
