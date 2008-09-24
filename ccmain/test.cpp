@@ -9,6 +9,8 @@
 #include <sys/stat.h>
 
 #include "baseapi.h"
+#include "varable.h"
+#include "tessvars.h"
 
 #define FAILIF(cond, msg...) do {                        	 \
         if (cond) { 	                                	 \
@@ -18,21 +20,25 @@
         }                                                	 \
 } while(0)
 
+// This is to make the ratings file parser happy.
+BOOL_VAR (tessedit_write_images, FALSE,
+                 "Capture the image from the IPE");
 
 int main(int argc, char **argv) {
-	const char *infile, *outfile, *lang;
+	const char *infile, *outfile, *lang, *ratings;
 	void *buffer;
 	struct stat s;
 	int x, y, ifd;
 
-	FAILIF(argc != 6, 
-		"tesstest infile xres yres outfile lang\n"); 
+	FAILIF(argc < 6 || argc > 7, 
+		"tesstest infile xres yres outfile lang [ratings]\n"); 
 
 	infile = argv[1];
 	FAILIF(sscanf(argv[2], "%d", &x) != 1, "could not parse x!\n");
 	FAILIF(sscanf(argv[3], "%d", &y) != 1, "could not parse y!\n");
 	outfile = argv[4];
 	lang = argv[5];
+	ratings = argv[6];
 
 	printf("input file %s\n", infile);
 	ifd = open(infile, O_RDONLY);
@@ -47,15 +53,19 @@ int main(int argc, char **argv) {
 
 	printf("lang %s\n", lang);
 	FAILIF(api.Init("/sdcard/", lang), "could not initialize tesseract\n");
-#if 0
-	FAILIF(false == api.ReadConfigFile("/sdcard/tessdata/ratings"),
-		"could not read config file\n");
-#endif
+	if (ratings) {
+		printf("ratings %s\n", ratings);
+		FAILIF(false == api.ReadConfigFile("/sdcard/tessdata/ratings"),
+			"could not read config file\n");
+	}
 
 	printf("set image x=%d, y=%d\n", x, y);
 	api.SetImage((const unsigned char *)buffer, x, y, 1, x); 
 	printf("recognize\n");
 	char * text = api.GetUTF8Text();
+	if (tessedit_write_images) {
+		page_image.write("tessinput.tif");
+	}
 	FAILIF(text == NULL, "didn't recognize\n");
 
 	printf("write to output %s\n", outfile);
