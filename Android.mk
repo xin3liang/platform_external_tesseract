@@ -1,7 +1,7 @@
 LOCAL_PATH:= $(call my-dir)
 
 #
-# libtesseract_cc_util
+# libocr
 #
 
 include $(CLEAR_VARS)
@@ -32,22 +32,7 @@ LOCAL_SRC_FILES:= 		\
 	ccutil/varable.cpp	\
 	ccutil/ccutil.cpp
 
-LOCAL_C_INCLUDES+= \
-	$(LOCAL_PATH)/ccutil
-
-LOCAL_MODULE:= libtesseract_cc_util
-
-LOCAL_PRELINK_MODULE:= false
-include $(BUILD_SHARED_LIBRARY)
-#include $(BUILD_STATIC_LIBRARY)
-
-#
-# libtesseract_c_util
-#
-
-include $(CLEAR_VARS)
-
-LOCAL_SRC_FILES:= 		\
+LOCAL_SRC_FILES+= 		\
 	cutil/tessarray.cpp	\
 	cutil/bitvec.cpp	\
 	cutil/danerror.cpp	\
@@ -65,28 +50,7 @@ LOCAL_SRC_FILES:= 		\
 	cutil/variables.cpp	\
 	cutil/cutil_class.cpp 
 
-#LOCAL_CFLAGS:=-fno-short-enums
-
-LOCAL_C_INCLUDES+= \
-	$(LOCAL_PATH)/cutil	\
-	$(LOCAL_PATH)/ccutil
-
-LOCAL_SHARED_LIBRARIES:= \
-	libtesseract_cc_util
-
-LOCAL_MODULE:= libtesseract_c_util
-
-LOCAL_PRELINK_MODULE:= false
-include $(BUILD_SHARED_LIBRARY)
-#include $(BUILD_STATIC_LIBRARY)
-
-#
-# libtesseract_image
-#
-
-include $(CLEAR_VARS)
-
-LOCAL_SRC_FILES:= 		\
+LOCAL_SRC_FILES+= 		\
 	image/image.cpp		\
 	image/imgbmp.cpp	\
 	image/imgio.cpp		\
@@ -95,28 +59,7 @@ LOCAL_SRC_FILES:= 		\
 	image/bitstrm.cpp	\
 	image/svshowim.cpp
 
-LOCAL_CFLAGS:=-DGRAPHICS_DISABLED
-
-LOCAL_C_INCLUDES+= \
-	$(LOCAL_PATH)/ccutil	\
-	$(LOCAL_PATH)/image
-
-LOCAL_SHARED_LIBRARIES:= \
-	libtesseract_cc_util
-
-LOCAL_MODULE:= libtesseract_image
-
-LOCAL_PRELINK_MODULE:= false
-include $(BUILD_SHARED_LIBRARY)
-#include $(BUILD_STATIC_LIBRARY)
-
-#
-# libtesseract_cc_struct
-#
-
-include $(CLEAR_VARS)
-
-LOCAL_SRC_FILES:=		\
+LOCAL_SRC_FILES+=		\
 	ccstruct/blobbox.cpp	\
 	ccstruct/blobs.cpp	\
 	ccstruct/blread.cpp	\
@@ -153,61 +96,10 @@ LOCAL_SRC_FILES:=		\
 	ccstruct/vecfuncs.cpp	\
 	ccstruct/werd.cpp
 
-LOCAL_CFLAGS:=-DGRAPHICS_DISABLED
+LOCAL_SRC_FILES+= 		\
+	pageseg/pageseg.cpp
 
-LOCAL_C_INCLUDES+= \
-	$(LOCAL_PATH)/ccstruct \
-	$(LOCAL_PATH)/ccutil	\
-	$(LOCAL_PATH)/cutil	\
-	$(LOCAL_PATH)/image
-
-LOCAL_SHARED_LIBRARIES:= \
-	libtesseract_cc_util \
-	libtesseract_c_util \
-	libtesseract_image
-
-LOCAL_MODULE:= libtesseract_cc_struct
-
-LOCAL_PRELINK_MODULE:= false
-include $(BUILD_SHARED_LIBRARY)
-#include $(BUILD_STATIC_LIBRARY)
-
-#
-# libtesseract_pageseg
-#
-
-include $(CLEAR_VARS)
-
-LOCAL_CFLAGS:=-DGRAPHICS_DISABLED
-
-LOCAL_SRC_FILES:= pageseg/pageseg.cpp
-
-LOCAL_C_INCLUDES+= \
-	$(LOCAL_PATH)/ccstruct \
-	$(LOCAL_PATH)/ccutil \
-	$(LOCAL_PATH)/ccmain \
-	$(LOCAL_PATH)/image \
-	$(LOCAL_PATH)/textord
-
-LOCAL_SHARED_LIBRARIES:= \
-	libtesseract_image \
-	libtesseract_cc_util \
-	libtesseract_cc_struct \
-	libtesseract_globals
-
-LOCAL_MODULE:= libtesseract_pageseg
-
-LOCAL_PRELINK_MODULE:= false
-include $(BUILD_SHARED_LIBRARY)
-#include $(BUILD_STATIC_LIBRARY)
-
-#
-# libtesseract_dict
-#
-
-include $(CLEAR_VARS)
-
-LOCAL_SRC_FILES:= \
+LOCAL_SRC_FILES+= 		\
 	dict/choices.cpp	\
 	dict/context.cpp	\
 	dict/conversion.cpp	\
@@ -225,37 +117,7 @@ LOCAL_SRC_FILES:= \
 	dict/lookdawg.cpp	\
 	dict/trie.cpp
 
-LOCAL_CFLAGS:=-DGRAPHICS_DISABLED
-LOCAL_CFLAGS+=-DFST_DISABLED
-LOCAL_CFLAGS+=-DDISABLE_DOC_DICT
-
-LOCAL_C_INCLUDES+= \
-	$(LOCAL_PATH)/cutil		\
-	$(LOCAL_PATH)/ccutil		\
-	$(LOCAL_PATH)/ccstruct	\
-	$(LOCAL_PATH)/image		\
-	$(LOCAL_PATH)/dict
-
-LOCAL_MODULE:= libtesseract_dict
-
-LOCAL_SHARED_LIBRARIES:= \
-	libtesseract_c_util \
-	libtesseract_cc_struct \
-	libtesseract_cc_util
-
-LOCAL_PRELINK_MODULE:= false
-include $(BUILD_SHARED_LIBRARY)
-#include $(BUILD_STATIC_LIBRARY)
-
-#
-# libtesseract_classify
-#
-
-include $(CLEAR_VARS)
-
-LOCAL_MODULE:= libtesseract_classify
-
-LOCAL_SRC_FILES:= \
+LOCAL_SRC_FILES+= 		\
 	classify/adaptive.cpp	\
 	classify/adaptmatch.cpp	\
 	classify/baseline.cpp	\
@@ -290,36 +152,7 @@ LOCAL_SRC_FILES:= \
 	classify/speckle.cpp	\
 	classify/xform2d.cpp
 
-LOCAL_C_INCLUDES+= \
-	$(LOCAL_PATH)/cutil		\
-	$(LOCAL_PATH)/ccutil		\
-	$(LOCAL_PATH)/classify	\
-	$(LOCAL_PATH)/ccstruct	\
-	$(LOCAL_PATH)/image		\
-	$(LOCAL_PATH)/dict
-
-LOCAL_CFLAGS:=-DGRAPHICS_DISABLED
-#LOCAL_CFLAGS+=-DDISABLE_INTEGER_MATCHING
-
-LOCAL_SHARED_LIBRARIES:= \
-	libtesseract_cc_struct \
-	libtesseract_dict \
-	libtesseract_c_util \
-	libtesseract_cc_util
-
-LOCAL_PRELINK_MODULE:= false
-include $(BUILD_SHARED_LIBRARY)
-#include $(BUILD_STATIC_LIBRARY)
-
-#
-# libtesseract_wordrec
-#
-
-include $(CLEAR_VARS)
-
-LOCAL_MODULE:= libtesseract_wordrec
-
-LOCAL_SRC_FILES:= \
+LOCAL_SRC_FILES+= 		\
 	wordrec/associate.cpp	\
 	wordrec/badwords.cpp	\
 	wordrec/bestfirst.cpp	\
@@ -351,71 +184,10 @@ LOCAL_SRC_FILES:= \
 #	wordrec/plotedges.cpp
 #	wordrec/plotseg.cpp
 
-LOCAL_CFLAGS:=-DGRAPHICS_DISABLED
-
-LOCAL_C_INCLUDES+= \
-	$(LOCAL_PATH)/cutil		\
-	$(LOCAL_PATH)/ccstruct 	\
-	$(LOCAL_PATH)/ccutil		\
-	$(LOCAL_PATH)/cstruct 	\
-	$(LOCAL_PATH)/classify	\
-	$(LOCAL_PATH)/dict		\
-	$(LOCAL_PATH)/image
-
-LOCAL_SHARED_LIBRARIES:= \
-	libtesseract_globals \
-	libtesseract_cc_struct \
-        libtesseract_classify \
-        libtesseract_image \
-        libtesseract_dict \
-        libtesseract_c_util \
-        libtesseract_cc_util
-
-LOCAL_PRELINK_MODULE:= false
-include $(BUILD_SHARED_LIBRARY)
-#include $(BUILD_STATIC_LIBRARY)
-
-#
-# libtesseract_globals
-#
-
-include $(CLEAR_VARS)
-
-LOCAL_MODULE:= libtesseract_globals
-
-LOCAL_CFLAGS:=-DGRAPHICS_DISABLED
-
-LOCAL_SRC_FILES:= \
+LOCAL_SRC_FILES+= 		\
 	ccmain/tessvars.cpp
 
-LOCAL_C_INCLUDES+= \
-	$(LOCAL_PATH)/wordrec	\
-	$(LOCAL_PATH)/textord	\
-	$(LOCAL_PATH)/ccstruct	\
-	$(LOCAL_PATH)/classify	\
-	$(LOCAL_PATH)/image		\
-	$(LOCAL_PATH)/dict		\
-	$(LOCAL_PATH)/cutil		\
-	$(LOCAL_PATH)/pageseg	\
-	$(LOCAL_PATH)/ccutil
-
-LOCAL_SHARED_LIBRARIES:= \
-	libtesseract_image \
-	libtesseract_cc_util \
-
-LOCAL_PRELINK_MODULE:= false
-include $(BUILD_SHARED_LIBRARY)
-#include $(BUILD_STATIC_LIBRARY)
-
-#
-# libtesseract_main
-#
-
-include $(CLEAR_VARS)
-
-LOCAL_MODULE:= libtesseract_main
-
-LOCAL_SRC_FILES:= \
+LOCAL_SRC_FILES+= 		\
 	ccmain/tstruct.cpp 	\
 	ccmain/reject.cpp 	\
 	ccmain/callnet.cpp	\
@@ -469,35 +241,32 @@ LOCAL_SRC_FILES+= \
 #	textord/drawtord.cpp
 #	textord/drawedg.cpp	
 
-LOCAL_CFLAGS:=-DGRAPHICS_DISABLED
-
-LOCAL_C_INCLUDES+= \
+LOCAL_C_INCLUDES+= 			\
 	$(LOCAL_PATH)/ccmain		\
-	$(LOCAL_PATH)/wordrec	\
-	$(LOCAL_PATH)/textord	\
-	$(LOCAL_PATH)/ccstruct	\
-	$(LOCAL_PATH)/classify	\
-	$(LOCAL_PATH)/image		\
-	$(LOCAL_PATH)/dict		\
+	$(LOCAL_PATH)/ccstruct 		\
+	$(LOCAL_PATH)/cstruct 		\
 	$(LOCAL_PATH)/cutil		\
-	$(LOCAL_PATH)/pageseg	\
-	$(LOCAL_PATH)/ccutil
+	$(LOCAL_PATH)/ccutil 		\
+	$(LOCAL_PATH)/ccmain 		\
+	$(LOCAL_PATH)/image 		\
+	$(LOCAL_PATH)/dict 		\
+	$(LOCAL_PATH)/classify		\
+	$(LOCAL_PATH)/pageseg		\
+	$(LOCAL_PATH)/wordrec		\
+	$(LOCAL_PATH)/textord
+
+LOCAL_CFLAGS:=-DGRAPHICS_DISABLED
+LOCAL_CFLAGS+=-DFST_DISABLED
+LOCAL_CFLAGS+=-DDISABLE_DOC_DICT
+LOCAL_CFLAGS+=-DDISABLE_INTEGER_MATCHING
 
 LOCAL_SHARED_LIBRARIES:= \
-	libtesseract_pageseg \
-	libtesseract_globals \
-	libtesseract_wordrec \
-	libtesseract_cc_struct \
-	libtesseract_classify \
-	libtesseract_image \
-	libtesseract_dict \
-	libtesseract_c_util \
-	libtesseract_cc_util \
 	liblog
+
+LOCAL_MODULE:= libocr
 
 LOCAL_PRELINK_MODULE:= false
 include $(BUILD_SHARED_LIBRARY)
-#include $(BUILD_STATIC_LIBRARY)
 
 #
 # tesseract
@@ -526,7 +295,7 @@ LOCAL_C_INCLUDES+= \
 	$(LOCAL_PATH)/ccmain
 
 LOCAL_SHARED_LIBRARIES:= \
-	libtesseract_main
+	libocr
 
 include $(BUILD_EXECUTABLE)
 
@@ -557,7 +326,7 @@ LOCAL_C_INCLUDES+= \
 	$(LOCAL_PATH)/ccmain
 
 LOCAL_SHARED_LIBRARIES:= \
-	libtesseract_main
+	libocr
 
 include $(BUILD_EXECUTABLE)
 
@@ -626,10 +395,7 @@ LOCAL_C_INCLUDES:= \
 	$(LOCAL_PATH)/textord	\
 
 LOCAL_SHARED_LIBRARIES:= \
-	libtesseract_image \
-	libtesseract_globals \
-	libtesseract_cc_util \
-	libtesseract_main
+	libocr
 
 LOCAL_PRELINK_MODULE:= false
 include $(BUILD_SHARED_LIBRARY)
@@ -645,7 +411,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE:= heliumtest
 
 LOCAL_SRC_FILES:= \
-	helium/test.cpp
+	helium/android_helium.cpp
 
 LOCAL_CFLAGS:= 				\
 	-DGRAPHICS_DISABLED		\
