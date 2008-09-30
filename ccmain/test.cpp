@@ -28,24 +28,25 @@ int main(int argc, char **argv) {
 	const char *infile, *outfile, *lang, *ratings;
 	void *buffer;
 	struct stat s;
-	int x, y, ifd;
+	int x, y, bpp, ifd;
 
-	FAILIF(argc < 6 || argc > 7, 
-		"tesstest infile xres yres outfile lang [ratings]\n"); 
+	FAILIF(argc < 7 || argc > 8, 
+		"tesstest infile xres yres bpp outfile lang [ratings]\n"); 
 
 	infile = argv[1];
 	FAILIF(sscanf(argv[2], "%d", &x) != 1, "could not parse x!\n");
 	FAILIF(sscanf(argv[3], "%d", &y) != 1, "could not parse y!\n");
-	outfile = argv[4];
-	lang = argv[5];
-	ratings = argv[6];
+	FAILIF(sscanf(argv[4], "%d", &bpp) != 1, "could not parse bpp!\n");
+	outfile = argv[5];
+	lang = argv[6];
+	ratings = argv[7];
 
 	printf("input file %s\n", infile);
 	ifd = open(infile, O_RDONLY);
 	FAILIF(ifd < 0, "open(%s): %s\n", infile, strerror(errno));
 	FAILIF(fstat(ifd, &s) < 0, "fstat(%d): %s\n", ifd, strerror(errno));
 	printf("file size %lld\n", s.st_size);
-	buffer = mmap(NULL, s.st_size * 2 / 3, PROT_READ, MAP_PRIVATE, ifd, 0);
+	buffer = mmap(NULL, s.st_size, PROT_READ, MAP_PRIVATE, ifd, 0);
 	FAILIF(buffer == MAP_FAILED, "mmap(): %s\n", strerror(errno));
 	printf("infile mmapped at %p\n", buffer);
 
@@ -59,8 +60,12 @@ int main(int argc, char **argv) {
 			"could not read config file\n");
 	}
 
-	printf("set image x=%d, y=%d\n", x, y);
-	api.SetImage((const unsigned char *)buffer, x, y, 1, x); 
+	printf("set image x=%d, y=%d bpp=%d\n", x, y, bpp);
+
+    FAILIF(!bpp || bpp == 2 || bpp > 4, 
+           "Invalid value %d of bpp\n", bpp);
+
+	api.SetImage((const unsigned char *)buffer, x, y, bpp, bpp*x); 
 	printf("recognize\n");
 	char * text = api.GetUTF8Text();
 	if (tessedit_write_images) {
