@@ -63,18 +63,6 @@ EDGE_REF edge_char_of(EDGE_ARRAY dawg,
 
   if (edge_occupied (dawg, edge)) {
     do {
-#if 0
-      // TODO(rays) Turn dawg to a class so this can be used properly.
-      // The maximum value of edge is unknown to this function, but could
-      // easily be stored in a dawg class.
-      if ((edge < 0 || edge >= MAX_NUM_EDGES_IN_SQUISHED_DAWG_FILE)
-          && edge != NO_EDGE) {
-        tprintf("Impossible return from edge_char_of: node=" REFFORMAT
-                ", ch=%d, edge=" REFFORMAT "\n", *node,
-                static_cast<unsigned char>(dummy_word[char_index]), edge);
-        return NO_EDGE;
-      }
-#endif
       if ((edge_letter (dawg, edge) == character) &&
         (! word_end || end_of_word(dawg,edge)))
         return (edge);

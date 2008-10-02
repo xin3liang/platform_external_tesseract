@@ -48,11 +48,6 @@ extern int LearningDebugLevel;
 
 void InitAdaptiveClassifierVars();
 
-void SettupPass1();
-
-void SettupPass2();
-
-
 int GetAdaptiveFeatures(TBLOB *Blob,
                         LINE_STATS *LineStats,
                         INT_FEATURE_ARRAY IntFeatures,

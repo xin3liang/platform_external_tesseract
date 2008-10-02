@@ -98,8 +98,7 @@ class Dict
                                EDGE_ARRAY dawg,
                                char permuter,
                                CHOICES_LIST character_choices,
-                               A_CHOICE *best_choice,
-                               inT16 system_words);
+                               A_CHOICE *best_choice);
   void adjust_word(A_CHOICE *best_choice, float *certainty_array);
 
   /* permute.cpp *************************************************************/

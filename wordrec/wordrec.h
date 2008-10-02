@@ -42,6 +42,8 @@ class Wordrec : public Classify {
                                     BOOL8 tester,
                                     BOOL8 trainer);
   void program_editdown(inT32 elasped_time);
+  void set_pass1();
+  void set_pass2();
   int end_recog();
   int start_recog(const char *configfile, const char *textbase);
   BLOB_CHOICE_LIST *call_matcher(                  //call a matcher

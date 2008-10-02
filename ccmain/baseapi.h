@@ -30,6 +30,11 @@ struct Pix;
 struct ETEXT_STRUCT;
 struct OSResults;
 
+#define MAX_NUM_INT_FEATURES 512
+struct INT_FEATURE_STRUCT;
+typedef INT_FEATURE_STRUCT *INT_FEATURE;
+typedef INT_FEATURE_STRUCT INT_FEATURE_ARRAY[MAX_NUM_INT_FEATURES];
+
 namespace tesseract {
 
 class Tesseract;
@@ -238,6 +243,10 @@ class TessBaseAPI {
 
   // Return the Orientation And Script
   void DetectOS(OSResults*);
+
+  // This method returns the features associated with the input image.
+  void GetFeatures(INT_FEATURE_ARRAY int_features,
+                   int* num_features);
 
  protected:
   // Common code for setting the image. Returns true if Init has been called.

@@ -116,8 +116,10 @@ void TesseractImage(const char* input_file, IMAGE* image,
       text = api->GetBoxText();
     else if (tessedit_write_unlv)
       text = api->GetUNLVText();
-    else
+    else {
+	printf("that's the shit!\n");
       text = api->GetUTF8Text();
+    }
     *text_out += text;
     delete [] text;
   } else {

@@ -198,7 +198,6 @@ void Wordrec::program_editdown(inT32 elasped_time) {
   getDict().end_permute();
   free_variables();
 }
-}  // namespace tesseract
 
 
 /**********************************************************************
@@ -206,7 +205,7 @@ void Wordrec::program_editdown(inT32 elasped_time) {
  *
  * Get ready to do some pass 1 stuff.
  **********************************************************************/
-void set_pass1() {
+void Wordrec::set_pass1() {
   blob_skip = FALSE;
   ok_split = 70.0;
   num_seg_states = 15;
@@ -220,7 +219,7 @@ void set_pass1() {
  *
  * Get ready to do some pass 2 stuff.
  **********************************************************************/
-void set_pass2() {
+void Wordrec::set_pass2() {
   blob_skip = FALSE;
   ok_split = pass2_ok_split;
   num_seg_states = pass2_seg_states;
@@ -234,7 +233,6 @@ void set_pass2() {
  *
  * Recognize a word.
  **********************************************************************/
-namespace tesseract {
 BLOB_CHOICE_LIST_VECTOR *Wordrec::cc_recog(TWERD *tessword,
                                            WERD_CHOICE *best_choice,
                                            WERD_CHOICE *best_raw_choice,

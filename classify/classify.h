@@ -101,22 +101,22 @@ class Classify : public CCStruct {
                     CLASS_ID ClassId,
                     FLOAT32 Rating,
                     int ConfigId);
-  #ifndef GRAPHICS_DISABLED
+#ifndef GRAPHICS_DISABLED
   void DebugAdaptiveClassifier(TBLOB *Blob,
                                LINE_STATS *LineStats,
                                ADAPT_RESULTS *Results);
-  #endif
-  void
-  GetAdaptThresholds (TWERD * Word,
-                      LINE_STATS * LineStats,
-                      const WERD_CHOICE& BestChoice,
-                      const WERD_CHOICE& BestRawChoice, FLOAT32 Thresholds[]);
+#endif
+  void GetAdaptThresholds (TWERD * Word,
+                           LINE_STATS * LineStats,
+                           const WERD_CHOICE& BestChoice,
+                           const WERD_CHOICE& BestRawChoice,
+                           FLOAT32 Thresholds[]);
 
-int MakeNewTemporaryConfig(ADAPT_TEMPLATES Templates,
-                           CLASS_ID ClassId,
-                           int NumFeatures,
-                           INT_FEATURE_ARRAY Features,
-                           FEATURE_SET FloatFeatures);
+  int MakeNewTemporaryConfig(ADAPT_TEMPLATES Templates,
+                             CLASS_ID ClassId,
+                             int NumFeatures,
+                             INT_FEATURE_ARRAY Features,
+                             FEATURE_SET FloatFeatures);
   void MakePermanent(ADAPT_TEMPLATES Templates,
                      CLASS_ID ClassId,
                      int ConfigId,
@@ -134,10 +134,10 @@ int MakeNewTemporaryConfig(ADAPT_TEMPLATES Templates,
                                  LINE_STATS *LineStats,
                                  ADAPT_TEMPLATES Templates,
                                  ADAPT_RESULTS *Results);
-  void CharNormClassifier(TBLOB *Blob,
-                          LINE_STATS *LineStats,
-                          INT_TEMPLATES Templates,
-                          ADAPT_RESULTS *Results);
+  int CharNormClassifier(TBLOB *Blob,
+                         LINE_STATS *LineStats,
+                         INT_TEMPLATES Templates,
+                         ADAPT_RESULTS *Results);
   UNICHAR_ID *GetAmbiguities(TBLOB *Blob,
                              LINE_STATS *LineStats,
                              CLASS_ID CorrectClass);
@@ -153,6 +153,8 @@ int MakeNewTemporaryConfig(ADAPT_TEMPLATES Templates,
                   const WERD_CHOICE &RawChoiceWord);
   void EndAdaptiveClassifier();
   void PrintAdaptiveStatistics(FILE *File);
+  void SettupPass1();
+  void SettupPass2();
   void AdaptiveClassifier(TBLOB *Blob,
                           TBLOB *DotBlob,
                           TEXTROW *Row,
@@ -207,6 +209,10 @@ int MakeNewTemporaryConfig(ADAPT_TEMPLATES Templates,
   BIT_VECTOR AllProtosOff;
   BIT_VECTOR AllConfigsOff;
   BIT_VECTOR TempProtoMask;
+  // External control of adaption.
+  BOOL_VAR_H(classify_enable_learning, true, "Enable adaptive classifier");
+  // Internal control of Adaption so it doesn't work on pass2.
+  bool EnableLearning;
   /* normmatch.cpp */
   NORM_PROTOS *NormProtos;
   /* font detection ***********************************************************/

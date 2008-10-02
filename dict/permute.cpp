@@ -1681,15 +1681,14 @@ A_CHOICE *Dict::permute_words(CHOICES_LIST char_choices, float rating_limit) {
   }
   else {
 
-    dawg_permute_and_select ("system words:", word_dawg, SYSTEM_DAWG_PERM,
-      char_choices, best_choice, TRUE);
+    dawg_permute_and_select("system words:", word_dawg, SYSTEM_DAWG_PERM,
+                            char_choices, best_choice);
 
-    dawg_permute_and_select ("document_words", document_words,
-      DOC_DAWG_PERM, char_choices, best_choice,
-      FALSE);
+    dawg_permute_and_select("document_words", document_words,
+                            DOC_DAWG_PERM, char_choices, best_choice);
 
-    dawg_permute_and_select ("user words", user_words, USER_DAWG_PERM,
-      char_choices, best_choice, FALSE);
+    dawg_permute_and_select("user words", user_words, USER_DAWG_PERM,
+                            char_choices, best_choice);
   }
 
   return (best_choice);

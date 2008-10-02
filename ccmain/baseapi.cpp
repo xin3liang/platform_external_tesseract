@@ -1146,4 +1146,91 @@ int TessBaseAPI::TesseractExtractResult(char** text,
   return n;
 }
 
+// This method returns the features associated with the current image.
+// Make sure setimage has been called before calling this method.
+void TessBaseAPI::GetFeatures(INT_FEATURE_ARRAY int_features,
+                              int* num_features) {
+  if (page_res_ != NULL)
+    ClearResults();
+  if (!threshold_done_)
+    Threshold();
+  // We have only one block, which is of the size of the page.
+  BLOCK_LIST* blocks = new BLOCK_LIST;
+  BLOCK *block = new BLOCK("",                       // filename.
+                           TRUE,                     // proportional.
+                           0,                        // kerning.
+                           0,                        // spacing.
+                           0,                        // Left.
+                           0,                        // Bottom.
+                           page_image.get_xsize(),   // Right.
+                           page_image.get_ysize());  // Top.
+  ICOORD bleft, tright;
+  block->bounding_box (bleft, tright);
+
+  BLOCK_IT block_it_add = blocks;
+  block_it_add.add_to_end(block);
+
+  ICOORD page_tr(page_image.get_xsize(), page_image.get_ysize());
+  TEXTROW tessrow;
+  make_tess_row(NULL,       // Denormalizer.
+                &tessrow);  // Output row.
+  LINE_STATS line_stats;
+  GetLineStatsFromRow(&tessrow, &line_stats);
+
+  // Perform a CC analysis to detect the blobs.
+  BLOCK_IT block_it = blocks;
+  for (block_it.mark_cycle_pt (); !block_it.cycled_list ();
+       block_it.forward ()) {
+    BLOCK* block = block_it.data();
+#ifndef GRAPHICS_DISABLED
+    extract_edges(NULL,         // Scrollview window.
+                  &page_image,  // Image.
+                  &page_image,  // Thresholded image.
+                  page_tr,      // corner of page.
+                  block);       // block.
+#else
+    extract_edges(&page_image,  // Image.
+                  &page_image,  // Thresholded image.
+                  page_tr,      // corner of page.
+                  block);       // block.
+#endif
+    C_BLOB_IT blob_it = block->blob_list();
+    PBLOB *pblob = new PBLOB;
+    // Iterate over all blobs found and get their features.
+    for (blob_it.mark_cycle_pt(); !blob_it.cycled_list();
+         blob_it.forward()) {
+      C_BLOB* blob = blob_it.data();
+      blob = blob;
+      PBLOB c_as_p(blob, page_image.get_ysize());
+      merge_blobs(pblob, &c_as_p);
+    }
+
+    PBLOB_LIST *pblob_list = new PBLOB_LIST;
+    PBLOB_IT pblob_it(pblob_list);
+    pblob_it.add_after_then_move(pblob);
+    WERD word(pblob_list,  // Blob list.
+              0,           // Blanks in front.
+              " ");        // Correct text.
+    ROW *row = make_tess_ocrrow(0,                       // baseline.
+                                page_image.get_ysize(),  // xheight.
+                                0,                       // ascent.
+                                0);                      // descent.
+    word.baseline_normalise(row);
+    delete row;
+    if (pblob->out_list () == NULL) {
+      tprintf("Blob list is empty");
+    }
+    TBLOB* tblob = make_tess_blob(pblob,  // Blob.
+                                  TRUE);  // Flatten.
+
+    CLASS_NORMALIZATION_ARRAY norm_array;
+    inT32 len;
+    *num_features = tesseract_->GetCharNormFeatures(
+        tblob, &line_stats,
+        tesseract_->PreTrainedTemplates,
+        int_features, norm_array, &len);
+  }
+  delete blocks;
+}
+
 }  // namespace tesseract.

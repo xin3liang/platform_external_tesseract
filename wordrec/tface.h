@@ -11,8 +11,4 @@
 ----------------------------------------------------------------------------*/
 void edit_with_ocr(const char *imagename);
 
-void set_pass1();
-
-void set_pass2();
-
 #endif

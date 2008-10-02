@@ -277,12 +277,6 @@ make_toggle_var(EnableAdaptiveDebugger, 0, MakeEnableAdaptiveDebugger,
 INT_VAR(matcher_debug_level, 0, "Matcher Debug Level");
 INT_VAR(matcher_debug_flags, 0, "Matcher Debug Flags");
 
-make_toggle_var(EnableLearning, 1, MakeEnableLearning,
-18, 4, SetEnableLearning, "Enable learning");
-/* PREV DEFAULT 0 */
-                                 /*record it for multiple pages */
-static int old_enable_learning = 1;
-
 make_int_var(LearningDebugLevel, 0, MakeLearningDebugLevel,
 18, 5, SetLearningDebugLevel, "Learning Debug Level: ");
 
@@ -707,8 +701,6 @@ void Classify::InitAdaptiveClassifier() {
       free_adapted_templates(AdaptedTemplates);
     AdaptedTemplates = NewAdaptedTemplates(true);
   }
-  old_enable_learning = EnableLearning;
-
 }                                /* InitAdaptiveClassifier */
 
 void Classify::ResetAdaptiveClassifier() {
@@ -740,7 +732,6 @@ void InitAdaptiveClassifierVars() {
   MakeUsePreAdaptedTemplates();
   MakeSaveAdaptedTemplates();
 
-  MakeEnableLearning();
   MakeEnableAdaptiveDebugger();
   MakeLearningDebugLevel();
   MakeEnableIntFX();
@@ -794,11 +785,10 @@ void Classify::PrintAdaptiveStatistics(FILE *File) {
   PrintAdaptedTemplates(File, AdaptedTemplates);
   #endif
 }                                /* PrintAdaptiveStatistics */
-}  // namespace tesseract
 
 
 /*---------------------------------------------------------------------------*/
-void SettupPass1() {
+void Classify::SettupPass1() {
 /*
  **                         Parameters: none
  **                         Globals:
@@ -817,7 +807,7 @@ void SettupPass1() {
   disabled, then it will remain disabled.  This is only put here to
   make it very clear that learning is controlled directly by the global
     setting of EnableLearning. */
-  EnableLearning = old_enable_learning;
+  EnableLearning = classify_enable_learning;
 
   SettupStopperPass1();
 
@@ -825,7 +815,7 @@ void SettupPass1() {
 
 
 /*---------------------------------------------------------------------------*/
-void SettupPass2() {
+void Classify::SettupPass2() {
 /*
  **                         Parameters: none
  **                         Globals:
@@ -845,7 +835,6 @@ void SettupPass2() {
 
 
 /*---------------------------------------------------------------------------*/
-namespace tesseract {
 void Classify::InitAdaptedClass(TBLOB *Blob,
                                 LINE_STATS *LineStats,
                                 CLASS_ID ClassId,
@@ -1390,7 +1379,7 @@ void Classify::MasterMatcher(INT_TEMPLATES templates,
     IntegerMatcher(ClassForClassId(templates, class_id),
                    protos, configs, final_results->BlobLength,
                    num_features, features, norm_factors[class_id],
-                   &int_result, NO_DEBUG);
+                   &int_result, debug);
     // Compute class feature corrections.
     double miss_penalty = tessedit_class_miss_scale *
                           int_result.FeatureMisses;
@@ -1483,10 +1472,10 @@ UNICHAR_ID *Classify::BaselineClassifier(TBLOB *Blob,
 
 
 /*---------------------------------------------------------------------------*/
-void Classify::CharNormClassifier(TBLOB *Blob,
-                                  LINE_STATS *LineStats,
-                                  INT_TEMPLATES Templates,
-                                  ADAPT_RESULTS *Results) {
+int Classify::CharNormClassifier(TBLOB *Blob,
+                                 LINE_STATS *LineStats,
+                                 INT_TEMPLATES Templates,
+                                 ADAPT_RESULTS *Results) {
 /*
  **                         Parameters:
  **                         Blob
@@ -1524,7 +1513,7 @@ void Classify::CharNormClassifier(TBLOB *Blob,
     IntFeatures, CharNormArray,
     &(Results->BlobLength));
   if (NumFeatures <= 0)
-    return;
+    return 0;
 
   NumClasses = ClassPruner(Templates, NumFeatures,
                            IntFeatures, CharNormArray,
@@ -1542,6 +1531,7 @@ void Classify::CharNormClassifier(TBLOB *Blob,
   MasterMatcher(Templates, NumFeatures, IntFeatures, CharNormArray,
                 NULL, matcher_debug_flags, NumClasses,
                 Results->CPResults, Results);
+  return NumFeatures;
 }                                /* CharNormClassifier */
 
 
