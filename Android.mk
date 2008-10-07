@@ -1,12 +1,12 @@
 LOCAL_PATH:= $(call my-dir)
 
+BUILD_FOR_HOST:=1
+
 #
-# libocr
+# libocr (common)
 #
 
-include $(CLEAR_VARS)
-
-LOCAL_SRC_FILES:= 		\
+local_SRC_FILES:= 		\
 	ccutil/basedir.cpp	\
 	ccutil/bits16.cpp	\
 	ccutil/boxread.cpp	\
@@ -32,7 +32,7 @@ LOCAL_SRC_FILES:= 		\
 	ccutil/varable.cpp	\
 	ccutil/ccutil.cpp
 
-LOCAL_SRC_FILES+= 		\
+local_SRC_FILES+= 		\
 	cutil/tessarray.cpp	\
 	cutil/bitvec.cpp	\
 	cutil/danerror.cpp	\
@@ -50,7 +50,7 @@ LOCAL_SRC_FILES+= 		\
 	cutil/variables.cpp	\
 	cutil/cutil_class.cpp 
 
-LOCAL_SRC_FILES+= 		\
+local_SRC_FILES+= 		\
 	image/image.cpp		\
 	image/imgbmp.cpp	\
 	image/imgio.cpp		\
@@ -59,7 +59,7 @@ LOCAL_SRC_FILES+= 		\
 	image/bitstrm.cpp	\
 	image/svshowim.cpp
 
-LOCAL_SRC_FILES+=		\
+local_SRC_FILES+=		\
 	ccstruct/blobbox.cpp	\
 	ccstruct/blobs.cpp	\
 	ccstruct/blread.cpp	\
@@ -96,10 +96,10 @@ LOCAL_SRC_FILES+=		\
 	ccstruct/vecfuncs.cpp	\
 	ccstruct/werd.cpp
 
-LOCAL_SRC_FILES+= 		\
+local_SRC_FILES+= 		\
 	pageseg/pageseg.cpp
 
-LOCAL_SRC_FILES+= 		\
+local_SRC_FILES+= 		\
 	dict/choices.cpp	\
 	dict/context.cpp	\
 	dict/conversion.cpp	\
@@ -117,7 +117,7 @@ LOCAL_SRC_FILES+= 		\
 	dict/lookdawg.cpp	\
 	dict/trie.cpp
 
-LOCAL_SRC_FILES+= 		\
+local_SRC_FILES+= 		\
 	classify/adaptive.cpp	\
 	classify/adaptmatch.cpp	\
 	classify/baseline.cpp	\
@@ -152,7 +152,7 @@ LOCAL_SRC_FILES+= 		\
 	classify/speckle.cpp	\
 	classify/xform2d.cpp
 
-LOCAL_SRC_FILES+= 		\
+local_SRC_FILES+= 		\
 	wordrec/associate.cpp	\
 	wordrec/badwords.cpp	\
 	wordrec/bestfirst.cpp	\
@@ -184,10 +184,10 @@ LOCAL_SRC_FILES+= 		\
 #	wordrec/plotedges.cpp
 #	wordrec/plotseg.cpp
 
-LOCAL_SRC_FILES+= 		\
+local_SRC_FILES+= 		\
 	ccmain/tessvars.cpp
 
-LOCAL_SRC_FILES+= 		\
+local_SRC_FILES+= 		\
 	ccmain/tstruct.cpp 	\
 	ccmain/reject.cpp 	\
 	ccmain/callnet.cpp	\
@@ -217,10 +217,9 @@ LOCAL_SRC_FILES+= 		\
 	ccmain/varabled.cpp	\
 	ccmain/werdit.cpp	\
 	ccmain/tessedit.cpp	\
-	ccmain/jni.cpp
 #	ccmain/pgedit.cpp
 
-LOCAL_SRC_FILES+= \
+local_SRC_FILES+= \
 	textord/blkocc.cpp	\
        	textord/edgblob.cpp	\
 	textord/edgloop.cpp	\
@@ -241,7 +240,7 @@ LOCAL_SRC_FILES+= \
 #	textord/drawtord.cpp
 #	textord/drawedg.cpp	
 
-LOCAL_C_INCLUDES+= 			\
+local_C_INCLUDES+= 			\
 	$(LOCAL_PATH)/ccmain		\
 	$(LOCAL_PATH)/ccstruct 		\
 	$(LOCAL_PATH)/cstruct 		\
@@ -255,10 +254,20 @@ LOCAL_C_INCLUDES+= 			\
 	$(LOCAL_PATH)/wordrec		\
 	$(LOCAL_PATH)/textord
 
-LOCAL_CFLAGS:=-DGRAPHICS_DISABLED
-LOCAL_CFLAGS+=-DFST_DISABLED
-LOCAL_CFLAGS+=-DDISABLE_DOC_DICT
-LOCAL_CFLAGS+=-DDISABLE_INTEGER_MATCHING
+local_CFLAGS:=-DGRAPHICS_DISABLED
+local_CFLAGS+=-DFST_DISABLED
+local_CFLAGS+=-DDISABLE_DOC_DICT
+local_CFLAGS+=-DDISABLE_INTEGER_MATCHING
+
+#
+# libocr (native)
+#
+
+include $(CLEAR_VARS)
+
+LOCAL_SRC_FILES:=$(local_SRC_FILES) ccmain/jni.cpp
+LOCAL_C_INCLUDES:=$(local_C_INCLUDES)
+LOCAL_CFLAGS:=$(local_CFLAGS)
 
 LOCAL_SHARED_LIBRARIES:= \
 	liblog
@@ -268,8 +277,24 @@ LOCAL_MODULE:= libocr
 LOCAL_PRELINK_MODULE:= false
 include $(BUILD_SHARED_LIBRARY)
 
+ifeq ($(BUILD_FOR_HOST),1)
+
 #
-# tesseract
+# libocr (host)
+#
+
+include $(CLEAR_VARS)
+
+LOCAL_SRC_FILES:=$(local_SRC_FILES)
+LOCAL_C_INCLUDES:=$(local_C_INCLUDES)
+LOCAL_CFLAGS:=$(local_CFLAGS)
+
+LOCAL_MODULE:= libocr
+
+include $(BUILD_HOST_SHARED_LIBRARY)
+
+#
+# tesseract test (host)
 #
 
 include $(CLEAR_VARS)
@@ -297,10 +322,10 @@ LOCAL_C_INCLUDES+= \
 LOCAL_SHARED_LIBRARIES:= \
 	libocr
 
-include $(BUILD_EXECUTABLE)
+include $(BUILD_HOST_EXECUTABLE)
 
 #
-# simple raw-YUV test.
+# simple raw-YUV test (host)
 #
 
 include $(CLEAR_VARS)
@@ -328,21 +353,15 @@ LOCAL_C_INCLUDES+= \
 LOCAL_SHARED_LIBRARIES:= \
 	libocr
 
-include $(BUILD_EXECUTABLE)
+include $(BUILD_HOST_EXECUTABLE)
+
+endif #BUILD_FOR_HOST
 
 #
-# libhelium
+# libhelium (common)
 #
 
-include $(CLEAR_VARS)
-
-LOCAL_MODULE:= libhelium
-
-LOCAL_CFLAGS:= \
-	-DGRAPHICS_DISABLED	\
-	-DFST_DISABLED
-
-LOCAL_SRC_FILES:= \
+local_SRC_FILES:= \
 	helium/binarize.cpp \
 	helium/cluster.cpp \
 	helium/clusterer.cpp \
@@ -381,7 +400,7 @@ LOCAL_SRC_FILES:= \
 	helium/box.cpp \
 	helium/imageenhancer.cpp 
 
-LOCAL_C_INCLUDES:= \
+local_C_INCLUDES:= \
 	$(LOCAL_PATH)		\
 	$(LOCAL_PATH)/ccmain         \
 	$(LOCAL_PATH)/helium		\
@@ -394,6 +413,22 @@ LOCAL_C_INCLUDES:= \
 	$(LOCAL_PATH)/cutil		\
 	$(LOCAL_PATH)/textord	\
 
+local_CFLAGS:= \
+	-DGRAPHICS_DISABLED	\
+	-DFST_DISABLED
+
+#
+# libhelium (native)
+#
+
+include $(CLEAR_VARS)
+
+LOCAL_SRC_FILES:=$(local_SRC_FILES)
+LOCAL_CFLAGS:=$(local_CFLAGS)
+LOCAL_C_INCLUDES:=$(local_C_INCLUDES)
+
+LOCAL_MODULE:= libhelium
+
 LOCAL_SHARED_LIBRARIES:= \
 	libocr
 
@@ -401,7 +436,25 @@ LOCAL_PRELINK_MODULE:= false
 include $(BUILD_SHARED_LIBRARY)
 #include $(BUILD_STATIC_LIBRARY)
 
-ifeq (1,1)
+ifeq ($(BUILD_FOR_HOST),1)
+
+#
+# libhelium (host)
+#
+
+include $(CLEAR_VARS)
+
+LOCAL_SRC_FILES:=$(local_SRC_FILES)
+LOCAL_CFLAGS:=$(local_CFLAGS)
+LOCAL_C_INCLUDES:=$(local_C_INCLUDES)
+
+LOCAL_MODULE:= libhelium
+
+LOCAL_SHARED_LIBRARIES:= \
+	libocr
+
+include $(BUILD_HOST_SHARED_LIBRARY)
+
 #
 # helium executable 
 #
@@ -411,7 +464,7 @@ include $(CLEAR_VARS)
 LOCAL_MODULE:= heliumtest
 
 LOCAL_SRC_FILES:= \
-	helium/android_helium.cpp
+	helium/test.cpp
 
 LOCAL_CFLAGS:= 				\
 	-DGRAPHICS_DISABLED		\
@@ -430,7 +483,8 @@ LOCAL_C_INCLUDES+= 			\
 	$(LOCAL_PATH)/ccmain
 
 LOCAL_SHARED_LIBRARIES:= \
-	libhelium
+	libhelium \
+	libocr
 
-include $(BUILD_EXECUTABLE)
-endif
+include $(BUILD_HOST_EXECUTABLE)
+endif # BUILD_FOR_HOST
