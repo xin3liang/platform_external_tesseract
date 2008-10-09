@@ -50,7 +50,7 @@ int main(int argc, char **argv) {
 	buffer = mmap(NULL, s.st_size, PROT_READ, MAP_PRIVATE, ifd, 0);
 	FAILIF(buffer == MAP_FAILED, "mmap(): %s\n", strerror(errno));
 	printf("infile mmapped at %p\n", buffer);
-	FAILIF(tessdata, "You must specify a path for tessdata.\n");
+	FAILIF(!tessdata, "You must specify a path for tessdata.\n");
 
 	tesseract::TessBaseAPI  api;
 
@@ -64,13 +64,16 @@ int main(int argc, char **argv) {
 	}
 
 	printf("set image x=%d, y=%d bpp=%d\n", x, y, bpp);
-
 	FAILIF(!bpp || bpp == 2 || bpp > 4, 
 		"Invalid value %d of bpp\n", bpp);
-
 	api.SetImage((const unsigned char *)buffer, x, y, bpp, bpp*x); 
-	printf("set page seg mode to single word\n");
-	api.SetPageSegMode(tesseract::PSM_SINGLE_WORD);
+
+	printf("set rectangle to cover entire image\n");
+	api.SetRectangle(0, 0, x, y);
+
+	printf("set page seg mode to single character\n");
+	//api.SetPageSegMode(tesseract::PSM_AUTO);
+	//api.SetPageSegMode(tesseract::PSM_SINGLE_CHAR);
 	printf("recognize\n");
 	char * text = api.GetUTF8Text();
 	if (tessedit_write_images) {
@@ -84,6 +87,20 @@ int main(int argc, char **argv) {
 		fwrite(text, strlen(text), 1, fp);
 		fclose(fp);
 	}
+
+	int mean_confidence = api.MeanTextConf();
+	printf("mean confidence: %d\n", mean_confidence);
+
+	int* confs = api.AllWordConfidences();
+	int len, *trav;
+	for (len = 0, trav = confs; *trav != -1; trav++, len++)
+		printf("confidence %d: %d\n", len, *trav);
+	free(confs);
+
+	printf("clearing api\n");
+	api.Clear();
+	printf("clearing adaptive classifier\n");
+	api.ClearAdaptiveClassifier();
 
 	//delete [] text;
 	return 0;
