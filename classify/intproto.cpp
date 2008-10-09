@@ -836,15 +836,16 @@ INT_CLASS NewIntClass(int MaxNumProtos, int MaxNumConfigs) {
 
 /*-------------------------------------------------------------------------*/
 void free_int_class(INT_CLASS int_class) {
-  int i;
-
-  for (i = 0; i < NumProtoSetsIn (int_class); i++) {
-    Efree (ProtoSetIn (int_class, i));
+  if (int_class) {
+    int i;
+    for (i = 0; i < NumProtoSetsIn (int_class); i++) {
+      Efree (ProtoSetIn (int_class, i));
+    }
+    if (int_class->ProtoLengths != NULL) {
+      Efree (int_class->ProtoLengths);
+    }
+    Efree(int_class);
   }
-  if (int_class->ProtoLengths != NULL) {
-    Efree (int_class->ProtoLengths);
-  }
-  Efree(int_class);
 }
 
 
