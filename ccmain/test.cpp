@@ -24,6 +24,61 @@
 BOOL_VAR (tessedit_write_images, FALSE,
                  "Capture the image from the IPE");
 
+static void ocr(tesseract::TessBaseAPI *api,
+                const char *lang,
+                const char *tessdata,
+                const char *ratings,
+                void *buffer,
+                int x, int y, int bpp,
+                const char *outfile)
+{
+	printf("tessdata %s\n", tessdata);
+	printf("lang %s\n", lang);
+	FAILIF(api->Init(tessdata, lang), "could not initialize tesseract\n");
+	if (ratings) {
+		printf("ratings %s\n", ratings);
+		FAILIF(false == api->ReadConfigFile(ratings),
+			"could not read config file\n");
+	}
+
+	printf("set image\n");
+	api->SetImage((const unsigned char *)buffer, x, y, bpp, bpp*x); 
+	printf("set rectangle to cover entire image\n");
+	api->SetRectangle(2, 2, x-2, y-2);
+	printf("set page seg mode to single character\n");
+	api->SetPageSegMode(tesseract::PSM_AUTO);
+
+	printf("recognize\n");
+	char * text = api->GetUTF8Text();
+	if (tessedit_write_images) {
+		page_image.write("tessinput.tif");
+	}
+	FAILIF(text == NULL, "didn't recognize\n");
+
+	printf("write to output %s\n", outfile);
+	FILE* fp = fopen(outfile, "w");
+	if (fp != NULL) {
+		fwrite(text, strlen(text), 1, fp);
+		fclose(fp);
+	}
+    delete [] text;
+
+	int mean_confidence = api->MeanTextConf();
+	printf("mean confidence: %d\n", mean_confidence);
+
+	int* confs = api->AllWordConfidences();
+	int len, *trav;
+	for (len = 0, trav = confs; *trav != -1; trav++, len++)
+		printf("confidence %d: %d\n", len, *trav);
+	free(confs);
+
+	printf("clearing api\n");
+	api->Clear();
+	printf("clearing adaptive classifier\n");
+	api->ClearAdaptiveClassifier();
+	api->End();
+}
+
 int main(int argc, char **argv) {
 	const char *tessdata, *infile, *outfile, *lang, *ratings;
 	void *buffer;
@@ -52,55 +107,27 @@ int main(int argc, char **argv) {
 	printf("infile mmapped at %p\n", buffer);
 	FAILIF(!tessdata, "You must specify a path for tessdata.\n");
 
-	tesseract::TessBaseAPI  api;
-
-	printf("tessdata %s\n", tessdata);
-	printf("lang %s\n", lang);
-	FAILIF(api.Init(tessdata, lang), "could not initialize tesseract\n");
-	if (ratings) {
-		printf("ratings %s\n", ratings);
-		FAILIF(false == api.ReadConfigFile(ratings),
-			"could not read config file\n");
-	}
-
 	printf("set image x=%d, y=%d bpp=%d\n", x, y, bpp);
 	FAILIF(!bpp || bpp == 2 || bpp > 4, 
 		"Invalid value %d of bpp\n", bpp);
-	api.SetImage((const unsigned char *)buffer, x, y, bpp, bpp*x); 
 
-	printf("set rectangle to cover entire image\n");
-	api.SetRectangle(0, 0, x, y);
+    printf("\n\tpass 1\n\n");
+	tesseract::TessBaseAPI *api = new tesseract::TessBaseAPI();
+    ocr(api,
+        lang, tessdata,
+        ratings,
+        buffer, x, y, bpp,
+        outfile);
+    delete api;
 
-	printf("set page seg mode to single character\n");
-	//api.SetPageSegMode(tesseract::PSM_AUTO);
-	//api.SetPageSegMode(tesseract::PSM_SINGLE_CHAR);
-	printf("recognize\n");
-	char * text = api.GetUTF8Text();
-	if (tessedit_write_images) {
-		page_image.write("tessinput.tif");
-	}
-	FAILIF(text == NULL, "didn't recognize\n");
-
-	printf("write to output %s\n", outfile);
-	FILE* fp = fopen(outfile, "w");
-	if (fp != NULL) {
-		fwrite(text, strlen(text), 1, fp);
-		fclose(fp);
-	}
-
-	int mean_confidence = api.MeanTextConf();
-	printf("mean confidence: %d\n", mean_confidence);
-
-	int* confs = api.AllWordConfidences();
-	int len, *trav;
-	for (len = 0, trav = confs; *trav != -1; trav++, len++)
-		printf("confidence %d: %d\n", len, *trav);
-	free(confs);
-
-	printf("clearing api\n");
-	api.Clear();
-	printf("clearing adaptive classifier\n");
-	api.ClearAdaptiveClassifier();
+    printf("\n\tpass 2\n\n");
+	api = new tesseract::TessBaseAPI();
+    ocr(api,
+        lang, tessdata,
+        ratings,
+        buffer, x, y, bpp,
+        outfile);
+    delete api;
 
 	//delete [] text;
 	return 0;
