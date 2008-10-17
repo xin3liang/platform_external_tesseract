@@ -82,15 +82,15 @@ void init_ms_debug() {
     init_plotseg();
     init_render_vars();
     #endif
-
-    init_baseline();
-    init_bestfirst_vars();
-    init_splitter_vars();
-    init_associate_vars();
-    init_chop();
-
-    init_textord_vars();
   }
+
+  init_baseline();
+  init_bestfirst_vars();
+  init_splitter_vars();
+  init_associate_vars();
+  init_chop();
+  
+  init_textord_vars();
 }
 
 
