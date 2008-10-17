@@ -29,6 +29,7 @@ class Tesseract;
 }
 
 extern BOOL_VAR_H (textord_fp_chopping, TRUE, "Do fixed pitch chopping");
+void make_single_word(bool one_blob, TO_ROW_LIST *rows, ROW_LIST* real_rows);
 void make_words(                             //make words
                 ICOORD page_tr,              //top right
                 float gradient,              //page skew

@@ -28,6 +28,8 @@ Tesseract::Tesseract()
                 "Take segmentation and labeling from box file"),
     BOOL_MEMBER(tessedit_train_from_boxes, false,
                 "Generate training data from boxed chars"),
+    INT_MEMBER(tessedit_pageseg_mode, 0,
+               "Page seg mode: 0=auto, 1=col, 2=block, 3=line, 4=word, 6=char"),
     STRING_MEMBER(tessedit_char_blacklist, "",
                   "Blacklist of chars not to recognize"),
     STRING_MEMBER(tessedit_char_whitelist, "",

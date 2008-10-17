@@ -121,6 +121,52 @@ EXTERN double_VAR (textord_xheight_error_margin, 0.1, "Accepted variation");
 #define MAX_HEIGHT_MODES  12
 
 /**********************************************************************
+ * make_single_row
+ *
+ * Arrange the blobs into a single row.
+ **********************************************************************/
+
+float make_single_row(ICOORD page_tr, TO_BLOCK* block, TO_BLOCK_LIST* blocks) {
+  BLOBNBOX_IT blob_it = &block->blobs;
+  TO_ROW_IT row_it = block->get_rows();
+
+  // Include all the small blobs and large blobs.
+  blob_it.add_list_after(&block->small_blobs);
+  blob_it.add_list_after(&block->noise_blobs);
+  blob_it.add_list_after(&block->large_blobs);
+  blob_it.sort(blob_x_order);
+  blob_it.move_to_first();
+  TO_ROW* row = NULL;
+  // Add all the blobs to a single TO_ROW.
+  for (blob_it.mark_cycle_pt(); !blob_it.cycled_list(); blob_it.forward()) {
+    BLOBNBOX* blob = blob_it.extract();
+    int top = blob->bounding_box().top();
+    int bottom = blob->bounding_box().bottom();
+    if (row == NULL) {
+      row = new TO_ROW(blob, top, bottom, block->line_size);
+      row_it.add_before_then_move(row);
+    } else {
+      row->add_blob(blob, top, bottom, block->line_size);
+    }
+  }
+  // Fit an LMS line to the row.
+  for (row_it.mark_cycle_pt(); !row_it.cycled_list(); row_it.forward())
+    fit_lms_line(row_it.data());
+  float gradient;
+  float fit_error;
+  // Compute the skew based on the fitted line.
+  compute_page_skew(blocks, gradient, fit_error);
+  FCOORD rotation(1.0f, 0.0f);
+  // Associate i dots and other diacriticals with the appropriate blobs.
+  pre_associate_blobs(page_tr, block, rotation, false);
+  int block_edge = block->block->bounding_box().left();
+  fit_parallel_rows(block, gradient, rotation, block_edge, false);
+  // Make the curved baselines and setup some key block members.
+  make_spline_rows(block, gradient, rotation, block_edge, false);
+  return gradient;
+}
+
+/**********************************************************************
  * make_rows
  *
  * Arrange the blobs into rows.

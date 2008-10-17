@@ -200,6 +200,15 @@ bool TessBaseAPI::ReadConfigFile(const char* filename) {
   return true;
 }
 
+// Set the current page segmentation mode. Defaults to PSM_AUTO.
+// The mode is stored as an INT_VARIABLE so it can also be modified by
+// ReadConfigFile or SetVariable("tessedit_pageseg_mode", mode as string).
+void TessBaseAPI::SetPageSegMode(PageSegMode mode) {
+  if (tesseract_ == NULL)
+    tesseract_ = new Tesseract;
+  tesseract_->tessedit_pageseg_mode.set_value(mode);
+}
+
 // Recognize a rectangle from an image and return the result as a string.
 // May be called many times for a single Init.
 // Currently has no error checking.
@@ -332,6 +341,9 @@ int TessBaseAPI::Recognize(struct ETEXT_STRUCT* monitor) {
 #ifdef HAVE_LIBLEPT
     tesseract_->pgeditor_main(block_list_);
 #endif
+    delete page_res_;
+    page_res_ = NULL;
+    return -1;
   } else if (tesseract_->tessedit_train_from_boxes) {
     apply_box_training(*output_file_, block_list_);
   } else {
@@ -717,30 +729,6 @@ bool TessBaseAPI::InternalSetImage() {
   return true;
 }
 
-#ifndef HAVE_LIBLEPT
-namespace tesseract {
-void pgeditor_read_file(STRING &filename,
-                        BLOCK_LIST *blocks,  // block list to add to
-			Tesseract *tess)
-{
-  STRING name = filename;        //truncated name
-  const char *lastdot;           //of name
-  TO_BLOCK_LIST land_blocks, port_blocks;
-  TBOX page_box;
-
-  lastdot = strrchr (name.string (), '.');
-  if (lastdot != NULL)
-    name[lastdot-name.string()] = '\0';
-  if (!read_pd_file (name, page_image.get_xsize (), page_image.get_ysize (),
-                     blocks)) {
-    segment_page(blocks);
-  }
-  find_components(blocks, &land_blocks, &port_blocks, &page_box);
-  textord_page(page_box.topright(), blocks, &land_blocks, &port_blocks, tess);
-}
-}
-#endif//HAVE_LIBLEPT
-
 // Run the thresholder to make the thresholded image.
 void TessBaseAPI::Threshold() {
   thresholder_->ThresholdToIMAGE(&page_image);
@@ -752,19 +740,17 @@ void TessBaseAPI::Threshold() {
 
 // Find lines from the image making the BLOCK_LIST.
 int TessBaseAPI::FindLines() {
-  // The following call creates a full-page block and then runs connected
-  // component analysis and text line creation.
   if (input_file_ == NULL)
     input_file_ = new STRING(kInputFile);
   if (tesseract_ == NULL) {
     tesseract_ = new Tesseract;
     tesseract_->InitAdaptiveClassifier();
   }
-#ifdef HAVE_LIBLEPT
-  tesseract_->pgeditor_read_file(*input_file_, block_list_);
-#else
-  tesseract::pgeditor_read_file(*input_file_, block_list_, tesseract_);
-#endif
+  ASSERT_HOST(page_image.get_xsize() == rect_width_ ||
+              page_image.get_xsize() == rect_width_ - 1);
+  ASSERT_HOST(page_image.get_ysize() == rect_height_ ||
+              page_image.get_ysize() == rect_height_ - 1);
+  tesseract_->SegmentPage(input_file_, NULL, &page_image, block_list_);
   return 0;
 }
 

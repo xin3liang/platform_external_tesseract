@@ -45,6 +45,47 @@ extern /*"C" */ ETEXT_DESC *global_monitor;     //progress monitor
 #define BLOCK_STATS_CLUSTERS  10
 
 /**********************************************************************
+ * make_single_word
+ *
+ * Arrange the blobs into one word. There is no fixed pitch detection.
+ **********************************************************************/
+
+void make_single_word(bool one_blob, TO_ROW_LIST *rows, ROW_LIST* real_rows) {
+  TO_ROW_IT to_row_it(rows);
+  TO_ROW* row = to_row_it.data();
+  // The blobs have to come out of the BLOBNBOX into the C_BLOB_LIST ready
+  // to create the word.
+  C_BLOB_LIST cblobs;
+  C_BLOB_IT cblob_it(&cblobs);
+  BLOBNBOX_IT box_it(row->blob_list());
+  for (;!box_it.empty(); box_it.forward()) {
+    BLOBNBOX* bblob= box_it.extract();
+    if (bblob->joined_to_prev() || (one_blob && !cblob_it.empty())) {
+      if (bblob->cblob() != NULL) {
+        C_OUTLINE_IT cout_it(cblob_it.data()->out_list());
+        cout_it.move_to_last();
+        cout_it.add_list_after(bblob->cblob()->out_list());
+        delete bblob->cblob();
+      }
+    } else {
+      if (bblob->cblob() != NULL)
+        cblob_it.add_after_then_move(bblob->cblob());
+      delete bblob;
+    }
+  }
+  // Convert the TO_ROW to a ROW.
+  ROW* real_row = new ROW(row, static_cast<inT16>(row->kern_size),
+                          static_cast<inT16>(row->space_size));
+  WERD_IT word_it(real_row->word_list());
+  WERD* word = new WERD(&cblobs, 0, NULL);
+  word->set_flag(W_BOL, TRUE);
+  word->set_flag(W_EOL, TRUE);
+  word_it.add_after_then_move(word);
+  ROW_IT row_it(real_rows);
+  row_it.add_after_then_move(real_row);
+}
+
+/**********************************************************************
  * make_words
  *
  * Arrange the blobs into words.
@@ -535,7 +576,7 @@ ROW *make_rep_words(                 //make a row
   coeffs[1] = row->line_m ();
   coeffs[2] = row->line_c ();
   row->xheight = block->xheight;
-  real_row = new ROW (row,
+  real_row = new ROW(row,
     (inT16) block->kern_size, (inT16) block->space_size);
   word_it.set_to_list (real_row->word_list ());
                                  //put words in row

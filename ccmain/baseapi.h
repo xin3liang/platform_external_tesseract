@@ -43,6 +43,17 @@ class Dict;
 typedef int (Dict::*DictFunc)(void* dawg, void* node, int char_index,
                               char prevchar, const char *word, int word_end);
 
+enum PageSegMode {
+  PSM_AUTO,           // Fully automatic page segmentation. (Default.)
+  PSM_SINGLE_COLUMN,  // Assume a single column of text of variable sizes.
+  PSM_SINGLE_BLOCK,   // Assume a single uniform block of text.
+  PSM_SINGLE_LINE,    // Treat the image as a single text line.
+  PSM_SINGLE_WORD,    // Treat the image as a single word.
+  PSM_SINGLE_CHAR,    // Treat the image as a single character.
+
+  PSM_COUNT           // Number of enum entries.
+};
+
 // Base class for all tesseract APIs.
 // Specific classes can add ability to work on different inputs or produce
 // different outputs.
@@ -109,6 +120,11 @@ class TessBaseAPI {
   // Searches the standard places: tessdata/configs, tessdata/tessconfigs
   // and also accepts a relative or absolute path name.
   bool ReadConfigFile(const char* filename);
+
+  // Set the current page segmentation mode. Defaults to PSM_AUTO.
+  // The mode is stored as an INT_VARIABLE so it can also be modified by
+  // ReadConfigFile or SetVariable("tessedit_pageseg_mode", mode as string).
+  void SetPageSegMode(PageSegMode mode);
 
   // Recognize a rectangle from an image and return the result as a string.
   // May be called many times for a single Init.

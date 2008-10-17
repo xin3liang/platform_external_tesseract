@@ -109,6 +109,8 @@ extern double_VAR_H (textord_ascx_ratio_max, 1.7, "Max cap/xheight");
 extern double_VAR_H (textord_descx_ratio_min, 0.15, "Min desc/xheight");
 extern double_VAR_H (textord_descx_ratio_max, 0.6, "Max desc/xheight");
 extern double_VAR_H (textord_xheight_error_margin, 0.1, "Accepted variation");
+
+float make_single_row(ICOORD page_tr, TO_BLOCK* block, TO_BLOCK_LIST* blocks);
 float make_rows(                             //make rows
                 ICOORD page_tr,              //top right
                 BLOCK_LIST *blocks,          //block list

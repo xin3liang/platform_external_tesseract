@@ -236,7 +236,8 @@ local_SRC_FILES+= \
 	textord/tospace.cpp	\
 	textord/tovars.cpp	\
 	textord/underlin.cpp	\
-	textord/wordseg.cpp
+	textord/wordseg.cpp     \
+	textord/pagesegmain.cpp
 #	textord/drawtord.cpp
 #	textord/drawedg.cpp	
 

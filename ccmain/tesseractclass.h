@@ -76,6 +76,8 @@ class Tesseract : public Wordrec {
   ~Tesseract();
 
   void SetBlackAndWhitelist();
+  void SegmentPage(const STRING* input_file,
+                   Pix* pix, IMAGE* image, BLOCK_LIST* blocks);
 
   //// control.h /////////////////////////////////////////////////////////
   void recog_all_words(                                //process words
@@ -237,15 +239,6 @@ class Tesseract : public Wordrec {
   void adapt_to_good_samples(WERD_RES *word,
                              CHAR_SAMPLES_LIST *char_clusters,
                              CHAR_SAMPLE_LIST *chars_waiting);
-
-  BOOL_VAR_H(tessedit_resegment_from_boxes, false,
-             "Take segmentation and labeling from box file");
-  BOOL_VAR_H(tessedit_train_from_boxes, false,
-             "Generate training data from boxed chars");
-  STRING_VAR_H(tessedit_char_blacklist, "",
-               "Blacklist of chars not to recognize");
-  STRING_VAR_H(tessedit_char_whitelist, "",
-               "Whitelist of chars to recognize");
   BOOL8 word_adaptable(  //should we adapt?
                        WERD_RES *word,
                        uinT16 mode);
@@ -467,6 +460,18 @@ class Tesseract : public Wordrec {
                           );
   //// fixxht.cpp ///////////////////////////////////////////////////////
   void check_block_occ(WERD_RES *word_res);
+
+  //// Data members ///////////////////////////////////////////////////////
+  BOOL_VAR_H(tessedit_resegment_from_boxes, false,
+             "Take segmentation and labeling from box file");
+  BOOL_VAR_H(tessedit_train_from_boxes, false,
+             "Generate training data from boxed chars");
+  INT_VAR_H(tessedit_pageseg_mode, 0,
+            "Page seg mode: 0=auto, 1=col, 2=block, 3=line, 4=word, 6=char");
+  STRING_VAR_H(tessedit_char_blacklist, "",
+               "Blacklist of chars not to recognize");
+  STRING_VAR_H(tessedit_char_whitelist, "",
+               "Whitelist of chars to recognize");
 };
 
 }  // namespace tesseract
