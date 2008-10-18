@@ -44,9 +44,9 @@ static void ocr(tesseract::TessBaseAPI *api,
 	printf("set image\n");
 	api->SetImage((const unsigned char *)buffer, x, y, bpp, bpp*x); 
 	printf("set rectangle to cover entire image\n");
-	api->SetRectangle(2, 2, x-2, y-2);
+	api->SetRectangle(0, 0, x, y);
 	printf("set page seg mode to single character\n");
-	api->SetPageSegMode(tesseract::PSM_AUTO);
+	api->SetPageSegMode(tesseract::PSM_SINGLE_CHAR);
 
 	printf("recognize\n");
 	char * text = api->GetUTF8Text();
@@ -83,10 +83,10 @@ int main(int argc, char **argv) {
 	const char *tessdata, *infile, *outfile, *lang, *ratings;
 	void *buffer;
 	struct stat s;
-	int x, y, bpp, ifd;
+	int x, y, bpp, ifd, shards;
 
-	FAILIF(argc < 8 || argc > 9,
-		"tesstest infile xres yres bpp outfile lang tessdata [ratings]\n"); 
+	FAILIF(argc < 9 || argc > 10,
+		"tesstest infile xres yres bpp outfile lang shards tessdata [ratings]\n"); 
 
 	infile = argv[1];
 	FAILIF(sscanf(argv[2], "%d", &x) != 1, "could not parse x!\n");
@@ -94,8 +94,9 @@ int main(int argc, char **argv) {
 	FAILIF(sscanf(argv[4], "%d", &bpp) != 1, "could not parse bpp!\n");
 	outfile = argv[5];
 	lang = argv[6];
-	tessdata = argv[7];
-	ratings = argv[8];
+	FAILIF(sscanf(argv[7], "%d", &shards) != 1, "could not parse shards!\n");
+	tessdata = argv[8];
+	ratings = argv[9];
 
 	printf("input file %s\n", infile);
 	ifd = open(infile, O_RDONLY);
@@ -111,22 +112,26 @@ int main(int argc, char **argv) {
 	FAILIF(!bpp || bpp == 2 || bpp > 4, 
 		"Invalid value %d of bpp\n", bpp);
 
-    printf("\n\tpass 1\n\n");
-	tesseract::TessBaseAPI *api = new tesseract::TessBaseAPI();
-    ocr(api,
-        lang, tessdata,
-        ratings,
-        buffer, x, y, bpp,
-        outfile);
-    delete api;
-
-    printf("\n\tpass 2\n\n");
-	api = new tesseract::TessBaseAPI();
-    ocr(api,
-        lang, tessdata,
-        ratings,
-        buffer, x, y, bpp,
-        outfile);
+    tesseract::TessBaseAPI *api = new tesseract::TessBaseAPI();
+    if (shards >= 0) {
+        for (int cnt = 0; cnt < shards; cnt++) {
+            char lang_shard[100];
+            snprintf(lang_shard, sizeof(lang_shard), "%s%d", lang, cnt);
+            printf("\n\tlang/shard %s\n\n", lang_shard);
+            ocr(api,
+                lang_shard, tessdata,
+                ratings,
+                buffer, x, y, bpp,
+                outfile);
+        }
+    }
+    else {
+        ocr(api,
+            lang, tessdata,
+            ratings,
+            buffer, x, y, bpp,
+            outfile);
+    }
     delete api;
 
 	//delete [] text;
