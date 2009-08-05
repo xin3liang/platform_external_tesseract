@@ -38,16 +38,13 @@ extern INT_VAR_H(matcher_failed_adaptations_before_reset, 150,
                  "Number of failed adaptions before adapted templates reset");
 extern INT_VAR_H(matcher_min_examples_for_prototyping, 2,
                "Reliable Config Threshold");
-extern int tess_cn_matching;
-extern int tess_bn_matching;
-extern int LearningDebugLevel;
+extern BOOL_VAR_H(tess_cn_matching, 0, "Character Normalized Matching");
+extern BOOL_VAR_H(tess_bn_matching, 0, "Baseline Normalized Matching");
+extern INT_VAR_H(classify_learning_debug_level, 0, "Learning Debug Level: ");
 
 /**----------------------------------------------------------------------------
           Public Function Prototypes
 ----------------------------------------------------------------------------**/
-
-void InitAdaptiveClassifierVars();
-
 int GetAdaptiveFeatures(TBLOB *Blob,
                         LINE_STATS *LineStats,
                         INT_FEATURE_ARRAY IntFeatures,

@@ -19,8 +19,10 @@
 #ifndef TESSERACT_CCUTIL_CCUTIL_H__
 #define TESSERACT_CCUTIL_CCUTIL_H__
 
+#include "ambigs.h"
 #include "errcode.h"
 #include "strngs.h"
+#include "tessdatamanager.h"
 #include "varable.h"
 #include "unicharset.h"
 
@@ -54,31 +56,25 @@ class CCUtil {
   CCUtil();
   ~CCUtil();
 
-
-  // Memory Allocator there
-  //
-  //
-
-  //// mainblk.* //////////////////////////////////////////////////////
  public:
-  void main_setup(                         /*main demo program */
+  void main_setup(
                   const char *argv0,       //program name
-                  const char *basename,    //name of image
-                  int argc,                /*argument count */
-                  const char *const *argv  /*arguments */
+                  const char *basename      // name of image
                  );
  public:
   STRING datadir;    //dir for data files
-                                 //name of image
-  STRING imagebasename;
+  STRING imagebasename;  // name of image
 
   BOOL_VAR_H (m_print_variables, FALSE,
                    "Print initial values of all variables");
   STRING_VAR_H (m_data_sub_dir, "tessdata/", "Directory for data files");
+  STRING lang;
   STRING language_data_path_prefix;
+  TessdataManager tessdata_manager;
   UNICHARSET unicharset;
-  STRING imagefile;    /*image file name */
-  STRING directory;    /* main directory */
+  UnicharAmbigs unichar_ambigs;
+  STRING imagefile;  // image file name
+  STRING directory;  // main directory
 };
 
 extern CCUtilMutex tprintfMutex;

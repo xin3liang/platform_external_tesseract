@@ -147,35 +147,30 @@ inT16 word_blob_quality(  //Blob seg changes
     return 0;
                                  //xht used for blnorm
   bln_xht = bln_x_height / word->denorm.scale ();
-  bln_word = make_bln_copy (word->word, row, bln_xht, &denorm);
+  bln_word = make_bln_copy(word->word, row, NULL, bln_xht, &denorm);
   /*
     NOTE: Need to convert to tess format and back again to ensure that the
     same float -> int rounding of coords is done to source wd as out wd before
     comparison
   */
-  //   if (!bln_word->flag(W_POLYGON))
-  //           tprintf( "NON POLYGON BLN WERD\n");
-  tessword = make_tess_word (bln_word, NULL);
-                                 //convert word
+  tessword = make_tess_word(bln_word, NULL);  // Convert word.
   init_word = make_ed_word (tessword, bln_word);
-  //   if (!init_word->flag(W_POLYGON))
-  //         tprintf( "NON POLYGON INIT WERD\n");
-  //   tprintf( "SOURCE BLOBS-AFTER TESS:\n");
-  //   print_boxes( init_word );
-  //   tprintf( "OUTPUT BLOBS:\n");
-  //   print_boxes( word->outword );
+  delete bln_word;
+  delete_word(tessword);
+  if (init_word == NULL) {
+    // Conversion failed.
+    return 0;
+  }
 
   initial_it.set_to_list (init_word->blob_list ());
   init_blobs_left = initial_it.length ();
   outword_it.set_to_list (word->outword->blob_list ());
-  delete bln_word;
-  delete_word(tessword);  //get rid of it
 
   for (outword_it.mark_cycle_pt ();
   !outword_it.cycled_list (); outword_it.forward ()) {
     out_box = outword_it.data ()->bounding_box ();
 
-    /* Skip any initial blobs LEFT of current outword blob */
+    // Skip any initial blobs LEFT of current outword blob.
     while (!initial_it.at_last () &&
     (initial_it.data ()->bounding_box ().left () < out_box.left ())) {
       initial_it.forward ();
@@ -221,8 +216,7 @@ BOOL8 crude_match_blobs(PBLOB *blob1, PBLOB *blob2) {
 }
 
 
-inT16 word_outline_errs(  //Outline count errs
-                        WERD_RES *word) {
+inT16 word_outline_errs(WERD_RES *word) {
   PBLOB_IT outword_it;
   inT16 i = 0;
   inT16 err_count = 0;
@@ -232,8 +226,7 @@ inT16 word_outline_errs(  //Outline count errs
   for (outword_it.mark_cycle_pt ();
   !outword_it.cycled_list (); outword_it.forward ()) {
     err_count += count_outline_errs (word->best_choice->unichar_string()[i],
-      outword_it.data ()->out_list ()->
-      length ());
+                                    outword_it.data()->out_list()->length());
     i++;
   }
   return err_count;
@@ -245,8 +238,7 @@ inT16 word_outline_errs(  //Outline count errs
  * Combination of blob quality and outline quality - how many good chars are
  * there? - I.e chars which pass the blob AND outline tests.
  *************************************************************************/
-void word_char_quality(  //Blob seg changes
-                       WERD_RES *word,
+void word_char_quality(WERD_RES *word,
                        ROW *row,
                        inT16 *match_count,
                        inT16 *accepted_match_count) {
@@ -271,21 +263,18 @@ void word_char_quality(  //Blob seg changes
 
                                  //xht used for blnorm
   bln_xht = bln_x_height / word->denorm.scale ();
-  bln_word = make_bln_copy (word->word, row, bln_xht, &denorm);
+  bln_word = make_bln_copy(word->word, row, NULL, bln_xht, &denorm);
   /*
     NOTE: Need to convert to tess format and back again to ensure that the
     same float -> int rounding of coords is done to source wd as out wd before
     comparison
   */
-  tessword = make_tess_word (bln_word, NULL);
-                                 //convert word
+  tessword = make_tess_word(bln_word, NULL);  // Convert word.
   init_word = make_ed_word (tessword, bln_word);
   delete bln_word;
-  delete_word(tessword);  //get rid of it
-  //   tprintf( "SOURCE BLOBS-AFTER TESS:\n");
-  //   print_boxes( init_word );
-  //   tprintf( "OUTPUT BLOBS:\n");
-  //   print_boxes( word->outword );
+  delete_word(tessword);
+  if (init_word == NULL)
+    return;
 
   initial_it.set_to_list (init_word->blob_list ());
   init_blobs_left = initial_it.length ();
@@ -354,17 +343,18 @@ void unrej_good_chs(WERD_RES *word, ROW *row) {
 
                                  //xht used for blnorm
   bln_xht = bln_x_height / word->denorm.scale ();
-  bln_word = make_bln_copy (word->word, row, bln_xht, &denorm);
+  bln_word = make_bln_copy(word->word, row, NULL, bln_xht, &denorm);
   /*
     NOTE: Need to convert to tess format and back again to ensure that the
     same float -> int rounding of coords is done to source wd as out wd before
     comparison
   */
-  tessword = make_tess_word (bln_word, NULL);
-                                 //convert word
+  tessword = make_tess_word(bln_word, NULL);  // Convert word
   init_word = make_ed_word (tessword, bln_word);
   delete bln_word;
-  delete_word(tessword);  //get rid of it
+  delete_word(tessword);
+  if (init_word == NULL)
+    return;
 
   initial_it.set_to_list (init_word->blob_list ());
   init_blobs_left = initial_it.length ();
@@ -572,10 +562,7 @@ void Tesseract::doc_and_block_rejection(  //reject big chunks
     page_res_it.restart_page ();
     while (page_res_it.word () != NULL) {
       current_block = page_res_it.block ();
-      if (current_block->block->text_region () != NULL)
-        block_no = current_block->block->text_region ()->id_no ();
-      else
-        block_no = -1;
+      block_no = current_block->block->index();
       if ((page_res_it.block ()->char_count > 0) &&
         ((page_res_it.block ()->rej_count * 100.0 /
         page_res_it.block ()->char_count) >
@@ -766,7 +753,6 @@ void Tesseract::tilde_crunch(PAGE_RES_IT &page_res_it) {
   PAGE_RES_IT copy_it;
   BOOL8 prev_potential_marked = FALSE;
   BOOL8 found_terrible_word = FALSE;
-  int dict_type;
   BOOL8 ok_dict_word;
 
   page_res_it.restart_page ();
@@ -785,8 +771,7 @@ void Tesseract::tilde_crunch(PAGE_RES_IT &page_res_it) {
       prev_potential_marked = FALSE;
     }
     else {
-      dict_type = dict_word (word->best_choice->unichar_string().string());
-      ok_dict_word = (dict_type > 0) && (dict_type != DOC_DAWG_PERM);
+      ok_dict_word = safe_dict_word(*(word->best_choice));
       garbage_level = garbage_word (word, ok_dict_word);
 
       if ((garbage_level != G_NEVER_CRUNCH) &&

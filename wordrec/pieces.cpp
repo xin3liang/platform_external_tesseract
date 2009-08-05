@@ -295,7 +295,7 @@ BLOB_CHOICE_LIST *Wordrec::classify_piece(TBLOB *pieces,
 
   break_pieces(blob, seams, start, end);
 #ifndef GRAPHICS_DISABLED
-  if (display_segmentations > 2) {
+  if (wordrec_display_segmentations > 2) {
     chunk_groups = bin_to_chunks (&current_state, array_count (seams));
     display_segmentation(pieces, chunk_groups);
     window_wait(segm_window);

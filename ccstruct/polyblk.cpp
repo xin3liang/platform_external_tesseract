@@ -18,9 +18,9 @@
  **********************************************************************/
 
 #include    "mfcpch.h"
-#include    <stdio.h>
 #include          <ctype.h>
 #include          <math.h>
+#include <stdio.h>
 #include          "elst.h"
 #include    "polyblk.h"
 
@@ -31,7 +31,7 @@
 
 int lessthan(const void *first, const void *second);
 
-POLY_BLOCK::POLY_BLOCK(ICOORDELT_LIST *points, POLY_TYPE t) {
+POLY_BLOCK::POLY_BLOCK(ICOORDELT_LIST *points, PolyBlockType t) {
   ICOORDELT_IT v = &vertices;
 
   vertices.clear ();
@@ -122,20 +122,14 @@ inT16 POLY_BLOCK::winding_number(                     //winding number
 }
 
 
-/**********************************************************************
- * POLY_BLOCK::contains
- *
- * Is poly within poly
- **********************************************************************/
-
-BOOL8 POLY_BLOCK::contains(  //other outline
-                           POLY_BLOCK *other) {
+// Returns true if other is inside this.
+bool POLY_BLOCK::contains(POLY_BLOCK *other) {
   inT16 count;                   //winding count
   ICOORDELT_IT it = &vertices;   //iterator
   ICOORD vertex;
 
   if (!box.overlap (*(other->bounding_box ())))
-    return FALSE;                //can't be contained
+    return false;                // can't be contained
 
   /* check that no vertex of this is inside other */
 
@@ -145,7 +139,7 @@ BOOL8 POLY_BLOCK::contains(  //other outline
     count = other->winding_number (vertex);
     if (count != INTERSECTING)
       if (count != 0)
-        return (FALSE);
+        return false;
     it.forward ();
   }
   while (!it.at_first ());
@@ -160,11 +154,11 @@ BOOL8 POLY_BLOCK::contains(  //other outline
     count = winding_number (vertex);
     if (count != INTERSECTING)
       if (count == 0)
-        return (FALSE);
+        return false;
     it.forward ();
   }
   while (!it.at_first ());
-  return TRUE;
+  return true;
 }
 
 
@@ -218,15 +212,14 @@ void POLY_BLOCK::move(              //constructor
 
 
 #ifndef GRAPHICS_DISABLED
-void POLY_BLOCK::plot(ScrollView* window, ScrollView::Color colour, inT32 num) {
+void POLY_BLOCK::plot(ScrollView* window, inT32 num) {
   ICOORDELT_IT v = &vertices;
 
-  window->Pen(colour);
+  window->Pen(ColorForPolyBlockType(type));
 
   v.move_to_first ();
 
   if (num > 0) {
-    window->Pen(colour);
     window->TextAttributes("Times", 80, false, false, false);
     char temp_buff[34];
     #ifdef __UNIX__
@@ -275,14 +268,14 @@ void POLY_BLOCK::fill(ScrollView* window, ScrollView::Color colour) {
 #endif
 
 
-BOOL8 POLY_BLOCK::overlap(  // do polys overlap
-                          POLY_BLOCK *other) {
+// Returns true if the polygons of other and this overlap.
+bool POLY_BLOCK::overlap(POLY_BLOCK *other) {
   inT16 count;                   //winding count
   ICOORDELT_IT it = &vertices;   //iterator
   ICOORD vertex;
 
   if (!box.overlap (*(other->bounding_box ())))
-    return FALSE;                //can't be any overlap
+    return false;                // can't be any overlap.
 
   /* see if a vertex of this is inside other */
 
@@ -292,7 +285,7 @@ BOOL8 POLY_BLOCK::overlap(  // do polys overlap
     count = other->winding_number (vertex);
     if (count != INTERSECTING)
       if (count != 0)
-        return (TRUE);
+        return true;
     it.forward ();
   }
   while (!it.at_first ());
@@ -307,11 +300,11 @@ BOOL8 POLY_BLOCK::overlap(  // do polys overlap
     count = winding_number (vertex);
     if (count != INTERSECTING)
       if (count != 0)
-        return (TRUE);
+        return true;
     it.forward ();
   }
   while (!it.at_first ());
-  return FALSE;
+  return false;
 }
 
 
@@ -394,5 +387,30 @@ void POLY_BLOCK::de_serialise_asc(         //convert from ascii
                                  ) {
   vertices.de_serialise_asc (f);
   box.de_serialise_asc (f);
-  type = (POLY_TYPE) de_serialise_INT32 (f);
+  type = (PolyBlockType) de_serialise_INT32 (f);
 }
+
+
+// Returns a color to draw the given type.
+ScrollView::Color POLY_BLOCK::ColorForPolyBlockType(PolyBlockType type) {
+  const ScrollView::Color kPBColors[PT_COUNT] = {
+    ScrollView::WHITE,
+    ScrollView::BLUE,
+    ScrollView::CYAN,
+    ScrollView::MEDIUM_BLUE,
+    ScrollView::MAGENTA,
+    ScrollView::YELLOW,
+    ScrollView::RED,
+    ScrollView::MAROON,
+    ScrollView::ORANGE,
+    ScrollView::GREEN,
+    ScrollView::LIME_GREEN,
+    ScrollView::DARK_GREEN,
+    ScrollView::GREY
+  };
+  if (type >= 0 && type < PT_COUNT) {
+    return kPBColors[type];
+  }
+  return ScrollView::WHITE;
+}
+

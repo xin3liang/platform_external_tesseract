@@ -20,9 +20,11 @@
 #ifndef TESSERACT_CCUTIL_UNICHARSET_H__
 #define TESSERACT_CCUTIL_UNICHARSET_H__
 
+#include "assert.h"
 #include "strngs.h"
 #include "unichar.h"
 #include "unicharmap.h"
+#include "varable.h"
 
 class CHAR_FRAGMENT {
  public:
@@ -119,7 +121,6 @@ class CHAR_FRAGMENT {
 // by a unique number, from 0 to (size - 1).
 class UNICHARSET {
  public:
-
   // Create an empty UNICHARSET
   UNICHARSET();
 
@@ -160,20 +161,20 @@ class UNICHARSET {
 
   // Return true if the given unichar id exists within the set.
   // Relies on the fact that unichar ids are contiguous in the unicharset.
-  bool contains_unichar_id(UNICHAR_ID unichar_id) {
+  bool contains_unichar_id(UNICHAR_ID unichar_id) const {
     return unichar_id != INVALID_UNICHAR_ID && unichar_id < size_used;
   }
 
   // Return true if the given unichar representation exists within the set.
-  bool contains_unichar(const char* const unichar_repr);
-  bool contains_unichar(const char* const unichar_repr, int length);
+  bool contains_unichar(const char* const unichar_repr) const;
+  bool contains_unichar(const char* const unichar_repr, int length) const;
 
   // Return true if the given unichar representation corresponds to the given
   // UNICHAR_ID within the set.
-  bool eq(UNICHAR_ID unichar_id, const char* const unichar_repr);
+  bool eq(UNICHAR_ID unichar_id, const char* const unichar_repr) const;
 
   // Delete CHAR_FRAGMENTs stored in properties of unichars array.
-  void delete_fragments() {
+  void delete_pointers_in_unichars() {
     for (int i = 0; i < size_used; ++i) {
       if (unichars[i].properties.fragment != NULL) {
         delete unichars[i].properties.fragment;
@@ -191,7 +192,7 @@ class UNICHARSET {
       script_table = 0;
       script_table_size_reserved = 0;
       script_table_size_used = 0;
-      delete_fragments();
+      delete_pointers_in_unichars();
       delete[] unichars;
       unichars = 0;
       size_reserved = 0;
@@ -208,13 +209,34 @@ class UNICHARSET {
   // Reserve enough memory space for the given number of UNICHARS
   void reserve(int unichars_number);
 
-  // Save the content of the UNICHARSET to the given file. Return true if the
-  // operation is successful.
-  bool save_to_file(const char* const filename) const;
+  // Opens the file indicated by filename and saves unicharset to that file.
+  // Returns true if the operation is successful.
+  bool save_to_file(const char * const filename) const {
+    FILE* file = fopen(filename, "w+");
+    if (file == NULL) return false;
+    bool result = save_to_file(file);
+    fclose(file);
+    return result;
+  }
 
-  // Load the UNICHARSET from the given file. The previous data is lost. Return
-  // true if the operation is successful.
-  bool load_from_file(const char* const filename);
+  // Saves the content of the UNICHARSET to the given file.
+  // Returns true if the operation is successful.
+  bool save_to_file(FILE *file) const;
+
+  // Opens the file indicated by filename and loads the UNICHARSET
+  // from the given file. The previous data is lost.
+  // Returns true if the operation is successful.
+  bool load_from_file(const char* const filename) {
+    FILE* file = fopen(filename, "r");
+    if (file == NULL) return false;
+    bool result = load_from_file(file);
+    fclose(file);
+    return result;
+  }
+
+  // Loads the UNICHARSET from the given file. The previous data is lost.
+  // Returns true if the operation is successful.
+  bool load_from_file(FILE *file);
 
   // Set a whitelist and/or blacklist of characters to recognize.
   // An empty or NULL whitelist enables everything (minus any blacklist).
@@ -245,10 +267,25 @@ class UNICHARSET {
     unichars[unichar_id].properties.isdigit = value;
   }
 
+  // Set the ispunctuation property of the given unichar to the given value.
+  void set_ispunctuation(UNICHAR_ID unichar_id, bool value) {
+    unichars[unichar_id].properties.ispunctuation = value;
+  }
+
+  // Set the isngram property of the given unichar to the given value.
+  void set_isngram(UNICHAR_ID unichar_id, bool value) {
+    unichars[unichar_id].properties.isngram = value;
+  }
+
   // Set the script name of the given unichar to the given value.
   // Value is copied and thus can be a temporary;
   void set_script(UNICHAR_ID unichar_id, const char* value) {
     unichars[unichar_id].properties.script_id = add_script(value);
+  }
+
+  // Set other_case unichar id in the properties for the given unichar id.
+  void set_other_case(UNICHAR_ID unichar_id, UNICHAR_ID other_case) {
+    unichars[unichar_id].properties.other_case = other_case;
   }
 
   // Return the isalpha property of the given unichar.
@@ -271,11 +308,38 @@ class UNICHARSET {
     return unichars[unichar_id].properties.isdigit;
   }
 
+  // Return the ispunctuation property of the given unichar.
+  bool get_ispunctuation(UNICHAR_ID unichar_id) const {
+    return unichars[unichar_id].properties.ispunctuation;
+  }
+
+  // Return the isngram property of the given unichar.
+  bool get_isngram(UNICHAR_ID unichar_id) const {
+    return unichars[unichar_id].properties.isngram;
+  }
+
   // Return the script name of the given unichar.
   // The returned pointer will always be the same for the same script, it's
   // managed by unicharset and thus MUST NOT be deleted
   int get_script(UNICHAR_ID unichar_id) const {
     return unichars[unichar_id].properties.script_id;
+  }
+
+  // Get other_case unichar id in the properties for the given unichar id.
+  UNICHAR_ID get_other_case(UNICHAR_ID unichar_id) const {
+    return unichars[unichar_id].properties.other_case;
+  }
+
+  // Returns UNICHAR_ID of the corresponding lower-case unichar.
+  UNICHAR_ID to_lower(UNICHAR_ID unichar_id) const {
+    if (unichars[unichar_id].properties.islower) return unichar_id;
+    return unichars[unichar_id].properties.other_case;
+  }
+
+  // Returns UNICHAR_ID of the corresponding upper-case unichar.
+  UNICHAR_ID to_upper(UNICHAR_ID unichar_id) const {
+    if (unichars[unichar_id].properties.isupper) return unichar_id;
+    return unichars[unichar_id].properties.other_case;
   }
 
   // Return a pointer to the CHAR_FRAGMENT class if the given
@@ -302,6 +366,11 @@ class UNICHARSET {
   // Return the isdigit property of the given unichar representation.
   bool get_isdigit(const char* const unichar_repr) const {
     return get_isdigit(unichar_to_id(unichar_repr));
+  }
+
+  // Return the ispunctuation property of the given unichar representation.
+  bool get_ispunctuation(const char* const unichar_repr) const {
+    return get_ispunctuation(unichar_to_id(unichar_repr));
   }
 
   // Return the script name of the given unichar representation.
@@ -349,6 +418,13 @@ class UNICHARSET {
     return get_isdigit(unichar_to_id(unichar_repr, length));
   }
 
+  // Return the ispunctuation property of the given unichar representation.
+  // Only the first length characters from unichar_repr are used.
+  bool get_ispunctuation(const char* const unichar_repr,
+                          int length) const {
+    return get_ispunctuation(unichar_to_id(unichar_repr, length));
+  }
+
   // Return the script name of the given unichar representation.
   // Only the first length characters from unichar_repr are used.
   // The returned pointer will always be the same for the same script, it's
@@ -370,6 +446,13 @@ class UNICHARSET {
     return script_table[id];
   }
 
+  // Returns the id from the name of the script, or 0 if script is not found.
+  // Note that this is an expensive operation since it involves iteratively
+  // comparing strings in the script table.  To avoid dependency on STL, we
+  // won't use a hash.  Instead, the calling function can use this to lookup
+  // and save the ID for relevant scripts for fast comparisons later.
+  int get_script_id_from_name(const char* script_name) const;
+
   // Return true if the given script is the null script
   bool is_null_script(const char* script) const {
     return script == null_script;
@@ -385,6 +468,14 @@ class UNICHARSET {
     return unichars[unichar_id].properties.enabled;
   }
 
+
+  int null_sid() const { return null_sid_; }
+  int common_sid() const { return common_sid_; }
+  int latin_sid() const { return latin_sid_; }
+  int cyrillic_sid() const { return cyrillic_sid_; }
+  int greek_sid() const { return greek_sid_; }
+  int han_sid() const { return han_sid_; }
+
  private:
 
   struct UNICHAR_PROPERTIES {
@@ -392,8 +483,11 @@ class UNICHARSET {
     bool  islower;
     bool  isupper;
     bool  isdigit;
+    bool  ispunctuation;
+    bool  isngram;
     bool  enabled;
     int   script_id;
+    UNICHAR_ID other_case;  // id of the corresponding upper/lower case unichar
 
     // Contains meta information about the fragment if a unichar represents
     // a fragment of a character, otherwise should be set to NULL.
@@ -415,6 +509,16 @@ class UNICHARSET {
   int script_table_size_used;
   int script_table_size_reserved;
   const char* null_script;
+
+  // A few convenient script name-to-id mapping without using hash.
+  // These are initialized when unicharset file is loaded.  Anything
+  // missing from this list can be looked up using get_script_id_from_name.
+  int null_sid_;
+  int common_sid_;
+  int latin_sid_;
+  int cyrillic_sid_;
+  int greek_sid_;
+  int han_sid_;
 };
 
 #endif  // TESSERACT_CCUTIL_UNICHARSET_H__

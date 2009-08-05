@@ -49,20 +49,6 @@ typedef LIST CHOICES;            /* CHOICES */
 //typedef float PROBABILITY;       /* PROBABILITY */
 //typedef char PERM_TYPE;          /* PERMUTER CODE */
 
-/* permuter codes used in A_CHOICEs for words */
-
-#define NO_PERM       0
-#define TOP_CHOICE_PERM  1
-#define LOWER_CASE_PERM  2
-#define UPPER_CASE_PERM  3
-#define NUMBER_PERM      4
-#define SYSTEM_DAWG_PERM 5
-#define DOC_DAWG_PERM    6
-#define USER_DAWG_PERM   7
-#define FREQ_DAWG_PERM   8
-#define COMPOUND_PERM    9
-#define CHAR_FRAGMENT_PERM      10
-
 typedef struct choicestruct
 {                                /* A_CHOICE */
   float rating;

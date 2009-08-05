@@ -83,12 +83,7 @@ void find_components(  // find components in blocks
                        TO_BLOCK_LIST *land_blocks,
                        TO_BLOCK_LIST *port_blocks,
                        TBOX *page_box);
-void assign_blobs_to_blocks(                             //split into groups
-                            PBLOB_LIST *blobs,           //blobs to distribute
-                            BLOCK_LIST *blocks,          //block list
-                            TO_BLOCK_LIST *land_blocks,  //rotated for landscape
-                            TO_BLOCK_LIST *port_blocks   //output list
-                           );
+void SetBlobStrokeWidth(bool debug, BLOBNBOX* blob);
 void assign_blobs_to_blocks2(                             //split into groups
                              BLOCK_LIST *blocks,          //blocks to process
                              TO_BLOCK_LIST *land_blocks,  //rotated for landscape
@@ -127,6 +122,9 @@ BOOL8 clean_noise_from_row(          //remove empties
 void clean_noise_from_words(          //remove empties
                             ROW *row  //row to clean
                            );
+// Remove outlines that are a tiny fraction in either width or height
+// of the word height.
+void clean_small_noise_from_words(ROW *row);
 void tweak_row_baseline(          //remove empties
                         ROW *row  //row to clean
                        );

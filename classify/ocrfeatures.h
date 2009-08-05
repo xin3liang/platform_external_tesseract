@@ -90,7 +90,6 @@ typedef FEATURE_DESC_STRUCT *FEATURE_DESC;
 typedef struct fxs
 {
   FX_FUNC Extractor;             /* func to extract features */
-  VOID_FUNC InitExtractorVars;   /* func to init fx controls */
 } FEATURE_EXT_STRUCT;
 
 /*----------------------------------------------------------------------
@@ -111,44 +110,18 @@ are as follows:
 
 DefineFeature (Name, NumLinear, NumCircular,
           MinFeatPerChar, MaxFeatPerChar,
-          LongName, ShortName, ParamName,
-      Extractor, Displayer,
-      ComputeExtraPenalty,
-      InitExtractor, InitExtractorVars, TweekExtractorVars)
+          LongName, ShortName, ParamName)
 ----------------------------------------------------------------------*/
 #define DefineFeature(Name, NL, NC, Min, Max, LN, SN, PN)		\
 FEATURE_DESC_STRUCT Name = {						\
 	((NL) + (NC)), NL, NC, Min, Max, LN, SN, PN};
-#define DefineFeatureExt(Name, E, IEV) FEATURE_EXT_STRUCT Name = {E, IEV};
 
-/*----------------------------------------------------------------------
-        Macros for accessing features
-----------------------------------------------------------------------*/
-#define TypeOf(Feature)     ((Feature)->Type)
-#define ParamOf(Feature, N) ((Feature)->Params[N])
-#define NumParamsIn(Feature)  (TypeOf (Feature) -> NumParams)
-
-/*----------------------------------------------------------------------
-        Macros for accessing feature sets
-----------------------------------------------------------------------*/
-#define NumFeaturesIn(Set)  ((Set)->NumFeatures)
-#define MaxNumFeaturesIn(Set) ((Set)->MaxNumFeatures)
-#define FeatureIn(Set, N) ((Set)->Features[N])
-
-/*----------------------------------------------------------------------
-          Macros for accessing feature descriptions
-----------------------------------------------------------------------*/
-#define ShortNameOf(FeatDesc) ((FeatDesc)->ShortName)
-#define LongNameOf(FeatDesc)  ((FeatDesc)->LongName)
-#define ExtractUsing(FeatDesc)  (*(FeatDesc)->Extractor)
-#define InitFXVarsUsing(FD) (*(FD)->InitExtractorVars)
+#define DefineFeatureExt(Name, E) FEATURE_EXT_STRUCT Name = {E};
 
 /*----------------------------------------------------------------------
         Generic routines that work for all feature types
 ----------------------------------------------------------------------*/
 BOOL8 AddFeature(FEATURE_SET FeatureSet, FEATURE Feature);
-
-void DefaultInitFXVars();
 
 void FreeFeature(FEATURE Feature);
 

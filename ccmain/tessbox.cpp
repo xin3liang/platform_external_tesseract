@@ -49,10 +49,10 @@ WERD_CHOICE *Tesseract::tess_segment_pass1(                 //recog one word
   int saved_chop_enable = 0;
 
   if (word->flag (W_DONT_CHOP)) {
-    saved_enable_assoc = enable_assoc;
+    saved_enable_assoc = wordrec_enable_assoc;
     saved_chop_enable = chop_enable;
-    enable_assoc = 0;
-    chop_enable = 0;
+    wordrec_enable_assoc.set_value(0);
+    chop_enable.set_value(0);
     if (word->flag (W_REP_CHAR))
       permute_only_top = 1;
   }
@@ -61,8 +61,8 @@ WERD_CHOICE *Tesseract::tess_segment_pass1(                 //recog one word
   result = recog_word (word, denorm, matcher, NULL, NULL, FALSE,
     raw_choice, blob_choices, outword);
   if (word->flag (W_DONT_CHOP)) {
-    enable_assoc = saved_enable_assoc;
-    chop_enable = saved_chop_enable;
+    wordrec_enable_assoc.set_value(saved_enable_assoc);
+    chop_enable.set_value(saved_chop_enable);
     permute_only_top = 0;
   }
   return result;
@@ -91,10 +91,10 @@ WERD_CHOICE *Tesseract::tess_segment_pass2(                 //recog one word
   int saved_chop_enable = 0;
 
   if (word->flag (W_DONT_CHOP)) {
-    saved_enable_assoc = enable_assoc;
+    saved_enable_assoc = wordrec_enable_assoc;
     saved_chop_enable = chop_enable;
-    enable_assoc = 0;
-    chop_enable = 0;
+    wordrec_enable_assoc.set_value(0);
+    chop_enable.set_value(0);
     if (word->flag (W_REP_CHAR))
       permute_only_top = 1;
   }
@@ -102,8 +102,8 @@ WERD_CHOICE *Tesseract::tess_segment_pass2(                 //recog one word
   result = recog_word (word, denorm, matcher, NULL, NULL, FALSE,
     raw_choice, blob_choices, outword);
   if (word->flag (W_DONT_CHOP)) {
-    enable_assoc = saved_enable_assoc;
-    chop_enable = saved_chop_enable;
+    wordrec_enable_assoc.set_value(saved_enable_assoc);
+    chop_enable.set_value(saved_chop_enable);
     permute_only_top = 0;
   }
   return result;
@@ -212,19 +212,20 @@ void Tesseract::tess_cn_matcher(                           //call tess
                                 PBLOB *nblob,              //next blob
                                 WERD *word,                //word it came from
                                 DENORM *denorm,            //de-normaliser
-                                BLOB_CHOICE_LIST *ratings  //list of results
+                                BLOB_CHOICE_LIST *ratings,  //list of results
+                                CLASS_PRUNER_RESULTS cpresults  // may be null.
                                ) {
   TBLOB *tessblob;               //converted blob
   TEXTROW tessrow;               //dummy row
 
-  tess_cn_matching = TRUE;       //turn it on
-  tess_bn_matching = FALSE;
+  tess_cn_matching.set_value(true);       //turn it on
+  tess_bn_matching.set_value(false);
                                  //convert blob
-  tessblob = make_tess_blob (blob, TRUE);
+  tessblob = make_rotated_tess_blob(denorm, blob, true);
                                  //make dummy row
   make_tess_row(denorm, &tessrow);
                                  //classify
-  AdaptiveClassifier(tessblob, NULL, &tessrow, ratings);
+  AdaptiveClassifier(tessblob, NULL, &tessrow, ratings, cpresults);
   free_blob(tessblob);
 }
 
@@ -247,14 +248,14 @@ void Tesseract::tess_bn_matcher(                           //call tess
   TBLOB *tessblob;               //converted blob
   TEXTROW tessrow;               //dummy row
 
-  tess_bn_matching = TRUE;       //turn it on
-  tess_cn_matching = FALSE;
+  tess_bn_matching.set_value(true);       //turn it on
+  tess_cn_matching.set_value(false);
                                  //convert blob
-  tessblob = make_tess_blob (blob, TRUE);
+  tessblob = make_rotated_tess_blob(denorm, blob, true);
                                  //make dummy row
   make_tess_row(denorm, &tessrow);
                                  //classify
-  AdaptiveClassifier(tessblob, NULL, &tessrow, ratings);
+  AdaptiveClassifier(tessblob, NULL, &tessrow, ratings, NULL);
   free_blob(tessblob);
 }
 
@@ -279,14 +280,14 @@ void Tesseract::tess_default_matcher(                       //call tess
   TBLOB *tessblob;               //converted blob
   TEXTROW tessrow;               //dummy row
 
-  tess_bn_matching = FALSE;      //turn it off
-  tess_cn_matching = FALSE;
+  tess_bn_matching.set_value(false);      //turn it off
+  tess_cn_matching.set_value(false);
                                  //convert blob
-  tessblob = make_tess_blob (blob, TRUE);
+  tessblob = make_rotated_tess_blob(denorm, blob, true);
                                  //make dummy row
   make_tess_row(denorm, &tessrow);
                                  //classify
-  AdaptiveClassifier (tessblob, NULL, &tessrow, ratings);
+  AdaptiveClassifier (tessblob, NULL, &tessrow, ratings, NULL);
   free_blob(tessblob);
 }
 }  // namespace tesseract
@@ -311,9 +312,9 @@ void tess_training_tester(                           //call tess
   TEXTROW tessrow;               //dummy row
 
   if (correct) {
-    NormMethod = character;              //Force char norm spc 30/11/93
-    tess_bn_matching = FALSE;    //turn it off
-    tess_cn_matching = FALSE;
+    classify_norm_method.set_value(character); // force char norm spc 30/11/93
+    tess_bn_matching.set_value(false);    //turn it off
+    tess_cn_matching.set_value(false);
                                  //convert blob
     tessblob = make_tess_blob (blob, TRUE);
                                  //make dummy row

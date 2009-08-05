@@ -144,7 +144,8 @@ EXTERN BOOL_VAR (tessedit_global_adaption, FALSE,
 EXTERN BOOL_VAR (tessedit_matcher_log, FALSE, "Log matcher activity");
 EXTERN INT_VAR (tessedit_test_adaption_mode, 3,
 "Adaptation decision algorithm for tess");
-BOOL_VAR (save_best_choices, FALSE, "Save the results of the recognition step"
+EXTERN BOOL_VAR(save_best_choices, FALSE,
+                "Save the results of the recognition step"
 " (blob_choices) within the corresponding WERD_CHOICE");
 
 EXTERN BOOL_VAR (test_pt, FALSE, "Test for point");
@@ -190,7 +191,7 @@ void Tesseract::recog_pseudo_word(                         //recognize blobs
  * Recognize a single word in interactive mode.
  **********************************************************************/
 BOOL8 Tesseract::recog_interactive(            //recognize blobs
-                                   BLOCK *,    //block
+                                   BLOCK *block,    //block
                                    ROW *row,   //row of word
                                    WERD *word  //word to recognize
                        ) {
@@ -198,7 +199,7 @@ BOOL8 Tesseract::recog_interactive(            //recognize blobs
   inT16 char_qual;
   inT16 good_char_qual;
 
-  classify_word_pass2(&word_res, row);
+  classify_word_pass2(&word_res, block, row);
   #ifndef SECURE_NAMES
   if (tessedit_debug_quality_metrics) {
     word_char_quality(&word_res, row, &char_qual, &good_char_qual);
@@ -223,7 +224,7 @@ void Tesseract::recog_all_words(                            //process words
                                 PAGE_RES *page_res,         //page structure
                                                             //progress monitor
                                 volatile ETEXT_DESC *monitor,
-                                        //specifies just to extract a retangle
+                                        // specifies just to extract a rectangle
                                 TBOX *target_word_box,
                                 //0 - all, 1 just pass 1, 2 passes 2 and higher
                                 inT16 dopasses
@@ -307,16 +308,25 @@ if (dopasses==0 || dopasses==1)
                                                          dict_words)))
         return;
     }
-    classify_word_pass1 (page_res_it.word (),
-      page_res_it.row ()->row, FALSE, NULL, NULL);
+    classify_word_pass1(page_res_it.word(), page_res_it.row()->row,
+                        page_res_it.block()->block, FALSE, NULL, NULL);
+    if (tessedit_dump_choices) {
+#ifndef GRAPHICS_DISABLED
+      word_dumper(NULL, page_res_it.row()->row, page_res_it.word()->word);
+#endif
+      tprintf("Pass1: %s [%s]\n",
+              page_res_it.word()->best_choice->unichar_string().string(),
+              page_res_it.word()->best_choice->
+                debug_string(unicharset).string());
+    }
 
     if (tessedit_test_adaption && !tessedit_minimal_rejection) {
       if (!word_adaptable (page_res_it.word (),
-        tessedit_test_adaption_mode))
+        tessedit_test_adaption_mode)) {
         page_res_it.word ()->reject_map.rej_word_tess_failure ();
       //FAKE PERM REJ
-      else {
-        /* Override rejection mechanisms for this word */
+      } else {
+        // Override rejection mechanisms for this word.
         UNICHAR_ID space = unicharset.unichar_to_id(" ");
         for (i = 0; i < page_res_it.word()->best_choice->length(); i++) {
           if ((page_res_it.word()->best_choice->unichar_id(i) != space) &&
@@ -354,6 +364,7 @@ if (dopasses==0 || dopasses==1)
     else
       classify_word_pass1 (page_res_it.word (),
         page_res_it.row ()->row,
+                          page_res_it.block()->block,
         TRUE, &char_clusters, &chars_waiting);
 
     page_res_it.forward ();
@@ -397,7 +408,17 @@ if (dopasses==1) return;
 	}
 //end jetsoft
 
-    classify_word_pass2 (page_res_it.word (), page_res_it.row ()->row);
+    classify_word_pass2(page_res_it.word(), page_res_it.block()->block,
+                        page_res_it.row()->row);
+    if (tessedit_dump_choices) {
+#ifndef GRAPHICS_DISABLED
+      word_dumper(NULL, page_res_it.row()->row, page_res_it.word()->word);
+#endif
+      tprintf("Pass2: %s [%s]\n",
+              page_res_it.word()->best_choice->unichar_string().string(),
+              page_res_it.word()->best_choice->
+                debug_string(unicharset).string());
+    }
 
     if (tessedit_em_adaption_mode > 0)
       collect_ems_for_adaption (page_res_it.word (),
@@ -577,6 +598,7 @@ if (dopasses==1) return;
 void Tesseract::classify_word_pass1(                 //recog one word
                                     WERD_RES *word,  //word to do
                                     ROW *row,
+                                    BLOCK* block,
                                     BOOL8 cluster_adapt,
                                     CHAR_SAMPLES_LIST *char_clusters,
                                     CHAR_SAMPLE_LIST *chars_waiting) {
@@ -611,7 +633,8 @@ void Tesseract::classify_word_pass1(                 //recog one word
   }
 
   check_debug_pt (word, 0);
-  bln_word = make_bln_copy (word->word, row, word->x_height, &word->denorm);
+  bln_word = make_bln_copy(word->word, row, block, word->x_height,
+                           &word->denorm);
 
   word->best_choice = tess_segment_pass1 (bln_word, &word->denorm,
     &Tesseract::tess_default_matcher,
@@ -625,7 +648,7 @@ void Tesseract::classify_word_pass1(                 //recog one word
   if ((word->best_choice->length() == 0) ||
       (strspn (word->best_choice->unichar_string().string(), " ") ==
        word->best_choice->length())) {
-    word->done = FALSE;          //Try again on pass2 - adaption may help
+    word->done = FALSE;          // Try again on pass2 - adaption may help.
     word->tess_failed = TRUE;
     word->reject_map.initialise(word->best_choice->length());
     word->reject_map.rej_word_tess_failure ();
@@ -657,16 +680,14 @@ void Tesseract::classify_word_pass1(                 //recog one word
 
     if (word->word->flag (W_REP_CHAR)) {
       fix_rep_char(word);
-    }
-    else {
-      fix_quotes (word->best_choice,
-      //turn to double
-        word->outword, blob_choices);
-      if (tessedit_fix_hyphens)
-                                 //turn 2 to 1
+    } else {
+      // TODO(daria) delete these hacks when replaced by more generic code.
+      // Convert '' (double single) to " (single double).
+      fix_quotes(word->best_choice, word->outword, blob_choices);
+      if (tessedit_fix_hyphens)  // turn -- to -
         fix_hyphens (word->best_choice, word->outword, blob_choices);
       record_certainty (word->best_choice->certainty (), 1);
-      //accounting
+      // accounting.
 
       word->tess_accepted = tess_acceptable_word (word->best_choice,
         word->raw_choice);
@@ -683,9 +704,9 @@ void Tesseract::classify_word_pass1(                 //recog one word
         adapt_to_good_samples(word, char_clusters, chars_waiting);
 
       if (adapt_ok || tessedit_tess_adapt_to_rejmap) {
-        if (!tessedit_tess_adapt_to_rejmap)
+        if (!tessedit_tess_adapt_to_rejmap) {
           rejmap = NULL;
-        else {
+        } else {
           ASSERT_HOST(word->reject_map.length() ==
                       word->best_choice->length());
 
@@ -698,7 +719,7 @@ void Tesseract::classify_word_pass1(                 //recog one word
           rejmap = mapstr.string ();
         }
 
-                                 //adapt to it
+                                 // adapt to it.
         tess_adapter (word->outword, &word->denorm,
                       *word->best_choice,
                       *word->raw_choice, rejmap);
@@ -731,9 +752,7 @@ void Tesseract::classify_word_pass1(                 //recog one word
  * Control what to do with the word in pass 2
  **********************************************************************/
 
-void Tesseract::classify_word_pass2(  //word to do
-                                    WERD_RES *word,
-                                    ROW *row) {
+void Tesseract::classify_word_pass2(WERD_RES *word, BLOCK* block, ROW *row) {
   BOOL8 done_this_pass = FALSE;
   WERD_RES new_x_ht_word (word->word);
   float new_x_ht = 0.0;
@@ -752,7 +771,7 @@ void Tesseract::classify_word_pass2(  //word to do
   check_debug_pt (word, 30);
   if (!word->done ||
     tessedit_training_tess ||
-  tessedit_training_wiseowl || tessedit_dump_choices) {
+  tessedit_training_wiseowl) {
     word->caps_height = 0.0;
     if (word->x_height == 0.0f)
       word->x_height = row->x_height();
@@ -761,7 +780,7 @@ void Tesseract::classify_word_pass2(  //word to do
       delete word->best_choice;
       delete word->raw_choice;
     }
-    match_word_pass2 (word, row, word->x_height);
+    match_word_pass2 (word, row, block, word->x_height);
     done_this_pass = TRUE;
     check_debug_pt (word, 40);
   }
@@ -787,7 +806,7 @@ void Tesseract::classify_word_pass2(  //word to do
       /* Re-estimated x_ht error suggests a rematch is worthwhile. */
       new_x_ht_word.x_height = new_x_ht;
       new_x_ht_word.caps_height = 0.0;
-      match_word_pass2 (&new_x_ht_word, row, new_x_ht_word.x_height);
+      match_word_pass2(&new_x_ht_word, row, block, new_x_ht_word.x_height);
       if (!new_x_ht_word.tess_failed) {
         if ((x_ht_check_word_occ >= 1) && word_occ_first)
           check_block_occ(&new_x_ht_word);
@@ -929,6 +948,7 @@ void Tesseract::classify_word_pass2(  //word to do
 void Tesseract::match_word_pass2(                 //recog one word
                                  WERD_RES *word,  //word to do
                                  ROW *row,
+                                 BLOCK* block,
                                  float x_height) {
   WERD *bln_word;                //baseline norm copy
                                  //detailed results
@@ -946,7 +966,7 @@ void Tesseract::match_word_pass2(                 //recog one word
     if (word_answer != NULL && word_answer[0] == '\0')
       word_answer = NULL;
   }
-  bln_word = make_bln_copy (word->word, row, x_height, &word->denorm);
+  bln_word = make_bln_copy (word->word, row, block, x_height, &word->denorm);
   set_global_subsubloc_code(SUBSUBLOC_TESS);
   if (tessedit_training_tess)
     word->best_choice = correct_segment_pass2 (bln_word,
@@ -955,20 +975,6 @@ void Tesseract::match_word_pass2(                 //recog one word
       tess_training_tester,
       word->raw_choice,
       blob_choices, word->outword);
-  else if (tessedit_dump_choices)
-    word->best_choice = test_segment_pass2 (bln_word,
-        &word->denorm,
-        &Tesseract::tess_default_matcher,
-        /*choice_dump_tester*/NULL,
-        word->raw_choice,
-        blob_choices, word->outword);
-  //else if (tessedit_training_wiseowl)
-  //        best_choice=correct_segment_pass2(word, &denorm,
-  //                                          tess_default_matcher,wo_learn,
-  //                                          raw_choice,blob_choices,outword);
-  //else if (tessedit_matcher_is_wiseowl)
-  //        best_choice=tess_segment_pass2(word, &denorm, wo_classify,
-  //                                       raw_choice, blob_choices, outword);
   else {
     word->best_choice = tess_segment_pass2 (bln_word, &word->denorm,
       &Tesseract::tess_default_matcher,
@@ -1311,25 +1317,13 @@ void choice_dump_tester(                           //dump chars in word
  * generated as output.
  *************************************************************************/
 
-WERD *make_bln_copy(WERD *src_word, ROW *row, float x_height, DENORM *denorm) {
-  WERD *result;
+WERD *make_bln_copy(WERD *src_word, ROW *row, BLOCK* block,
+                    float x_height, DENORM *denorm) {
+  WERD *result = src_word->poly_copy(row->x_height());
 
-  //      if (wordit_linearc && !src_word->flag(W_POLYGON))
-  //      {
-  //              larc_word = src_word->larc_copy( row->x_height() );
-  //              result = larc_word->poly_copy( row->x_height() );
-  //              delete larc_word;
-  //      }
-  // else
-  result = src_word->poly_copy (row->x_height ());
-
-  //      if (tessedit_draw_words)
-  //      {
-  //              if ( la_win == NO_WINDOW )
-  //                      create_la_win();
-  //              result->plot( la_win );
-  //      }
   result->baseline_normalise_x (row, x_height, denorm);
+  if (block != NULL)
+    denorm->set_block(block);
   return result;
 }
 

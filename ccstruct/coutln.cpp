@@ -143,6 +143,12 @@ C_OUTLINE::C_OUTLINE(                     //constructor
   uinT8 new_step;
 
   stepcount = srcline->stepcount * 2;
+  if (stepcount == 0) {
+    steps = NULL;
+    box = srcline->box;
+    box.rotate(rotation);
+    return;
+  }
                                  //get memory
   steps = (uinT8 *) alloc_mem (step_mem());
   memset(steps, 0, step_mem());
@@ -212,6 +218,7 @@ C_OUTLINE::C_OUTLINE(                     //constructor
     if (destindex >= 4)
       break;
   }
+  ASSERT_HOST(destindex <= stepcount);
   stepcount = destindex;
   destpos = start;
   for (stepindex = 0; stepindex < stepcount; stepindex++) {
@@ -220,6 +227,16 @@ C_OUTLINE::C_OUTLINE(                     //constructor
   ASSERT_HOST (destpos.x () == start.x () && destpos.y () == start.y ());
 }
 
+// Build a fake outline, given just a bounding box and append to the list.
+void C_OUTLINE::FakeOutline(const TBOX& box, C_OUTLINE_LIST* outlines) {
+  C_OUTLINE_IT ol_it(outlines);
+  // Make a C_OUTLINE from the bounds. This is a bit of a hack,
+  // as there is no outline, just a bounding box, but it works nicely.
+  CRACKEDGE start;
+  start.pos = box.topleft();
+  C_OUTLINE* outline = new C_OUTLINE(&start, box.topleft(), box.botright(), 0);
+  ol_it.add_to_end(outline);
+}
 
 /**********************************************************************
  * C_OUTLINE::area
@@ -251,6 +268,23 @@ inT32 C_OUTLINE::area() {  //winding number
     total += it.data ()->area ();//add areas of children
 
   return total;
+}
+
+/**********************************************************************
+ * C_OUTLINE::perimeter
+ *
+ * Compute the perimeter of the outline and its first level children.
+ **********************************************************************/
+
+inT32 C_OUTLINE::perimeter() {
+  inT32 total_steps;             // Return value.
+  C_OUTLINE_IT it = child();
+
+  total_steps = pathlength();
+  for (it.mark_cycle_pt(); !it.cycled_list(); it.forward())
+    total_steps += it.data()->pathlength();  // Add perimeters of children.
+
+  return total_steps;
 }
 
 
@@ -561,6 +595,25 @@ void C_OUTLINE::move(                  // reposition OUTLINE
     it.data ()->move (vec);      // move child outlines
 }
 
+// If this outline is smaller than the given min_size, delete this and
+// remove from its list, via *it, after checking that *it points to this.
+// Otherwise, if any children of this are too small, delete them.
+// On entry, *it must be an iterator pointing to this. If this gets deleted
+// then this is extracted from *it, so an iteration can continue.
+void C_OUTLINE::RemoveSmallRecursive(int min_size, C_OUTLINE_IT* it) {
+  if (box.width() < min_size || box.height() < min_size) {
+    ASSERT_HOST(this == it->data());
+    delete it->extract();  // Too small so get rid of it and any children.
+  } else if (!children.empty()) {
+    // Search the children of this, deleting any that are too small.
+    C_OUTLINE_IT child_it(&children);
+    for (child_it.mark_cycle_pt(); !child_it.cycled_list();
+         child_it.forward()) {
+      C_OUTLINE* child = child_it.data();
+      child->RemoveSmallRecursive(min_size, &child_it);
+    }
+  }
+}
 
 /**********************************************************************
  * C_OUTLINE::plot
@@ -580,6 +633,10 @@ void C_OUTLINE::plot(                //draw it
 
   pos = start;                   //current position
   window->Pen(colour);
+  if (stepcount == 0) {
+    window->Rectangle(box.left(), box.top(), box.right(), box.bottom());
+    return;
+  }
   window->SetCursor(pos.x(), pos.y());
 
   stepindex = 0;
@@ -620,6 +677,10 @@ const C_OUTLINE & source         //from this
   memmove (steps, source.steps, step_mem());
   if (!children.empty ())
     children.clear ();
-  children.deep_copy (&source.children);
+  children.deep_copy(&source.children, &deep_copy);
   return *this;
+}
+
+ICOORD C_OUTLINE::chain_step(int chaindir) {
+  return step_coords[chaindir % 4];
 }

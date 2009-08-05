@@ -11,6 +11,7 @@
 #include          "gap_map.h"
 #include          "statistc.h"
 #include          "notdll.h"
+
 extern BOOL_VAR_H (tosp_old_to_method, FALSE, "Space stats use prechopping?");
 extern BOOL_VAR_H (tosp_only_use_prop_rows, TRUE,
 "Block stats to use fixed pitch rows?");
@@ -28,6 +29,8 @@ extern BOOL_VAR_H (tosp_row_use_cert_spaces1, TRUE,
 "Only stat OBVIOUS spaces");
 extern BOOL_VAR_H (tosp_recovery_isolated_row_stats, TRUE,
 "Use row alone when inadequate cert spaces");
+extern BOOL_VAR_H(tosp_force_wordbreak_on_punct, FALSE,
+"Force word breaks on punct to break long lines in non-space delimited langs");
 extern BOOL_VAR_H (tosp_only_small_gaps_for_kern, FALSE, "Better guess");
 extern BOOL_VAR_H (tosp_all_flips_fuzzy, FALSE, "Pass ANY flip to context?");
 extern BOOL_VAR_H (tosp_fuzzy_limit_all, TRUE,
@@ -111,6 +114,7 @@ extern double_VAR_H (tosp_silly_kn_sp_gap, 0.2,
 "Dont let sp minus kn get too small");
 extern double_VAR_H (tosp_pass_wide_fuzz_sp_to_context, 0.75,
 "How wide fuzzies need context");
+
 void to_spacing(                       //set spacing
                 ICOORD page_tr,        //topright of page
                 TO_BLOCK_LIST *blocks  //blocks on page
@@ -149,6 +153,10 @@ void improve_row_threshold(TO_ROW *row, STATS *all_gap_stats);
 ROW *make_prop_words(                 //find lines
                      TO_ROW *row,     //row to make
                      FCOORD rotation  //for drawing
+                    );
+ROW *make_blob_words(                 // find lines
+                     TO_ROW *row,     // row to make
+                     FCOORD rotation  // for drawing
                     );
 BOOL8 make_a_word_break(               //decide on word break
                         TO_ROW *row,   //row being made

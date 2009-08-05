@@ -49,12 +49,10 @@ class PBLOB:public ELIST_LINK
     void baseline_denormalise(                        //denormalise
                               const DENORM *denorm);  //antidote
 
-#ifndef GRAPHICS_DISABLED
     void plot(                       //draw one
               ScrollView* window,         //window to draw in
               ScrollView::Color blob_colour,    //for outer bits
               ScrollView::Color child_colour);  //for holes
-#endif
 
     void move(                    // reposition blob
               const FCOORD vec);  // by FLOAT vector
@@ -64,6 +62,7 @@ class PBLOB:public ELIST_LINK
     void scale(                    // scale blob
                const FCOORD vec);  // by FLOAT vector
     void rotate();  // Rotate 90 deg anti
+    void rotate(const FCOORD& rotation);  // Rotate by given rotation.
 
     void prep_serialise() {  //set ptrs to counts
       outlines.prep_serialise ();
@@ -80,13 +79,20 @@ class PBLOB:public ELIST_LINK
     }
 
                                  //assignment
-    make_serialise (PBLOB) PBLOB & operator= (
-    const PBLOB & source) {      //from this
+    make_serialise(PBLOB)
+
+    PBLOB& operator=(const PBLOB & source) {
       if (!outlines.empty ())
         outlines.clear ();
 
-      outlines.deep_copy (&source.outlines);
+      outlines.deep_copy(&source.outlines, &OUTLINE::deep_copy);
       return *this;
+    }
+
+    static PBLOB* deep_copy(const PBLOB* src) {
+      PBLOB* blob = new PBLOB;
+      *blob = *src;
+      return blob;
     }
 
   private:

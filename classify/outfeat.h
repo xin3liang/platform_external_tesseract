@@ -38,8 +38,6 @@ typedef enum {
 ----------------------------------------------------------------------------**/
 FEATURE_SET ExtractOutlineFeatures(TBLOB *Blob, LINE_STATS *LineStats); 
 
-void InitOutlineFXVars(); 
-
 /*---------------------------------------------------------------------------
           Privat Function Prototypes
 ----------------------------------------------------------------------------*/
@@ -50,24 +48,6 @@ void AddOutlineFeatureToSet(FPOINT *Start,
 void ConvertToOutlineFeatures(MFOUTLINE Outline, FEATURE_SET FeatureSet); 
 
 void NormalizeOutlineX(FEATURE_SET FeatureSet); 
-
-/*
-#if defined(__STDC__) || defined(__cplusplus)
-# define        _ARGS(s) s
-#else
-# define        _ARGS(s) ()
-#endif*/
-
-/* outfeat.c *
-FEATURE_SET ExtractOutlineFeatures
-    _ARGS((BLOB *Blob,
-  LINE_STATS *LineStats));
-
-void InitOutlineFXVars
-    _ARGS((void));
-
-#undef _ARGS
-*/
 
 /**----------------------------------------------------------------------------
         Global Data Definitions and Declarations

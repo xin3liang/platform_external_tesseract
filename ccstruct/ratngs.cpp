@@ -17,11 +17,11 @@
  *
  **********************************************************************/
 
-#include "ratngs.h"
+#include "mfcpch.h"
 
+#include "ratngs.h"
 #include "callcpp.h"
 #include "genericvector.h"
-#include "mfcpch.h"
 #include "unicharset.h"
 
 extern FILE *matcher_fp;
@@ -63,20 +63,42 @@ BLOB_CHOICE::BLOB_CHOICE(const BLOB_CHOICE &other) {
 /**********************************************************************
  * WERD_CHOICE::WERD_CHOICE
  *
- * Constructor to build a WERD_CHOICE from the given string,
+ * Constructor to build a WERD_CHOICE from the given string.
+ * The function assumes that src_string is not NULL.
+ **********************************************************************/
+WERD_CHOICE::WERD_CHOICE(const char *src_string,
+                         const UNICHARSET &unicharset) {
+  STRING src_lengths;
+  int len = strlen(src_string);
+  const char *ptr = src_string;
+  int step = unicharset.step(ptr);
+  for (; ptr < src_string + len && step > 0;
+       step = unicharset.step(ptr), src_lengths += step, ptr += step);
+  if (step != 0 && ptr == src_string + len) {
+    this->init(src_string, src_lengths.string(),
+               0.0, 0.0, NO_PERM, unicharset);
+  } else {  // there must have been an invalid unichar in the string
+    this->init(8);
+    this->make_bad();
+  }
+}
+
+/**********************************************************************
+ * WERD_CHOICE::init
+ *
+ * Helper function to build a WERD_CHOICE from the given string,
  * fragment lengths, rating, certainty and permuter.
  *
  * The function assumes that src_string is not NULL.
  * src_lengths argument could be NULL, in which case the unichars
  * in src_string are assumed to all be of length 1.
  **********************************************************************/
-WERD_CHOICE::WERD_CHOICE(
-    const char *src_string,
+void WERD_CHOICE::init(const char *src_string,
     const char *src_lengths,
     float src_rating,
     float src_certainty,
     uinT8 src_permuter,
-    const UNICHARSET &current_unicharset) {
+                       const UNICHARSET &unicharset) {
   int src_string_len = strlen(src_string);
   if (src_string_len == 0) {
     this->init(8);
@@ -87,7 +109,7 @@ WERD_CHOICE::WERD_CHOICE(
     for (int i = 0; i < length_; ++i) {
       int unichar_length = src_lengths ? src_lengths[i] : 1;
       unichar_ids_[i] =
-          current_unicharset.unichar_to_id(src_string+offset, unichar_length);
+          unicharset.unichar_to_id(src_string+offset, unichar_length);
       fragment_lengths_[i] = 1;
       offset += unichar_length;
     }
@@ -116,7 +138,7 @@ WERD_CHOICE::~WERD_CHOICE() {
 void WERD_CHOICE::set_blob_choices(BLOB_CHOICE_LIST_CLIST *blob_choices) {
   if (blob_choices_ != blob_choices) {
     delete_blob_choices();
-    blob_choices = blob_choices;
+    blob_choices_ = blob_choices;
   }
 }
 
@@ -136,19 +158,19 @@ bool WERD_CHOICE::contains_unichar_id(UNICHAR_ID unichar_id) const {
 }
 
 /**********************************************************************
- * remove_unichar
+ * remove_unichar_ids
  *
- * Removes unichar id at the given index from unichar_ids_ and updates
- * length_, unichar_ids_ and fragment_lengths_ to reflect this change.
+ * Removes num unichar ids starting from index start from unichar_ids_
+ * and updates length_ and fragment_lengths_ to reflect this change.
  * Note: this function does not modify rating_ and certainty_.
  ***********************************************************************/
-void WERD_CHOICE::remove_unichar_id(int index) {
-  ASSERT_HOST(index < length_);
-  for (int i = index; i < length_-1; ++i) {
-    unichar_ids_[i] = unichar_ids_[i+1];
-    fragment_lengths_[i] = fragment_lengths_[i+1];
+void WERD_CHOICE::remove_unichar_ids(int start, int num) {
+  ASSERT_HOST(start >= 0 && start + num <= length_);
+  for (int i = start; i+num < length_; ++i) {
+    unichar_ids_[i] = unichar_ids_[i+num];
+    fragment_lengths_[i] = fragment_lengths_[i+num];
   }
-  length_--;
+  length_ -= num;
 }
 
 /**********************************************************************
@@ -162,7 +184,7 @@ void WERD_CHOICE::string_and_lengths(const UNICHARSET &current_unicharset,
                                      STRING *word_str,
                                      STRING *word_lengths_str) const {
   *word_str = "";
-  *word_lengths_str = "";
+  if (word_lengths_str != NULL) *word_lengths_str = "";
   for (int i = 0; i < length_; ++i) {
     const char *ch = current_unicharset.id_to_unichar(unichar_ids_[i]);
     *word_str += ch;
@@ -244,7 +266,8 @@ WERD_CHOICE & WERD_CHOICE::operator+= (const WERD_CHOICE & second) {
          second_blob_choices_it.forward()) {
 
       BLOB_CHOICE_LIST* blob_choices_copy = new BLOB_CHOICE_LIST();
-      blob_choices_copy->deep_copy(second_blob_choices_it.data());
+      blob_choices_copy->deep_copy(second_blob_choices_it.data(),
+                                   &BLOB_CHOICE::deep_copy);
 
       this_blob_choices_it.add_after_then_move(blob_choices_copy);
     }
@@ -296,7 +319,8 @@ WERD_CHOICE& WERD_CHOICE::operator=(const WERD_CHOICE& source) {
          source_blob_choices_it.forward()) {
 
       BLOB_CHOICE_LIST* blob_choices_copy = new BLOB_CHOICE_LIST();
-      blob_choices_copy->deep_copy(source_blob_choices_it.data());
+      blob_choices_copy->deep_copy(source_blob_choices_it.data(),
+                                   &BLOB_CHOICE::deep_copy);
 
       this_blob_choices_it.add_after_then_move(blob_choices_copy);
     }
@@ -322,8 +346,8 @@ void WERD_CHOICE::delete_blob_choices() {
  *
  * Print WERD_CHOICE to stdout.
  **********************************************************************/
-const void WERD_CHOICE::print() const {
-  tprintf("WERD_CHOICE:\n");
+const void WERD_CHOICE::print(const char *msg) const {
+  tprintf("%s WERD_CHOICE:\n", msg);
   tprintf("length_ %d reserved_ %d permuter_ %d\n",
          length_, reserved_, permuter_);
   tprintf("rating_ %.4f certainty_ %.4f", rating_, certainty_);
@@ -472,4 +496,22 @@ void print_ratings_info(
           first_char != NULL ? first_char : "~",
           first_rat, first_cert, sec_char != NULL ? sec_char : "~",
           sec_rat, sec_cert);
+}
+
+/**********************************************************************
+ * print_char_choices_list
+ **********************************************************************/
+void print_char_choices_list(const char *msg,
+                             const BLOB_CHOICE_LIST_VECTOR &char_choices,
+                             const UNICHARSET &current_unicharset,
+                             BOOL8 detailed) {
+  if (*msg != '\0') tprintf("%s\n", msg);
+  for (int x = 0; x < char_choices.length(); ++x) {
+    BLOB_CHOICE_IT c_it;
+    c_it.set_to_list(char_choices.get(x));
+    tprintf("char[%d]: %s\n", x,
+            current_unicharset.debug_str( c_it.data()->unichar_id()).string());
+    if (detailed)
+      print_ratings_list("  ", char_choices.get(x), current_unicharset);
+  }
 }

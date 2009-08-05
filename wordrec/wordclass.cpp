@@ -80,13 +80,11 @@ BLOB_CHOICE_LIST *Wordrec::classify_blob(TBLOB *pblob,
                                          const char *string,
                                          C_COL color) {
   BLOB_CHOICE_LIST *choices = NULL;
-
   chars_classified++;            /* Global value */
-  if (blob_skip)
+  if (tord_blob_skip)
     return (NULL);
-
 #ifndef GRAPHICS_DISABLED
-  if (display_all_blobs)
+  if (wordrec_display_all_blobs)
     display_blob(blob, color);
 #endif
   choices = get_match(blob);
@@ -94,17 +92,33 @@ BLOB_CHOICE_LIST *Wordrec::classify_blob(TBLOB *pblob,
     choices = call_matcher(pblob, blob, nblob, NULL, row);
     put_match(blob, choices);
   }
-
 #ifndef GRAPHICS_DISABLED
-  if (display_ratings && string)
+  if (tord_display_ratings && string)
     print_ratings_list(string, choices, getDict().getUnicharset());
 
-  if (blob_pause)
+  if (wordrec_blob_pause)
     window_wait(blob_window);
 #endif
 
   return (choices);
 }
+
+/**********************************************************************
+ * update_blob_classifications
+ *
+ * For each blob in the given word update match_table with the
+ * corresponding BLOB_CHOICES_LIST from choices.
+ * **********************************************************************/
+void Wordrec::update_blob_classifications(
+    TWERD *word, const BLOB_CHOICE_LIST_VECTOR &choices) {
+  TBLOB *tblob = word->blobs;
+  int index = 0;
+  for (; tblob != NULL && index < choices.length();
+       tblob = tblob->next, index++) {
+    add_to_match(tblob, choices.get(index));
+  }
+}
+
 }  // namespace tesseract;
 
 
@@ -121,7 +135,7 @@ void write_text_files(TWERD *word,
                       int firstpass) {
   int x;
   /* Raw output */
-  if (write_raw_output) {
+  if (tord_write_raw_output) {
     if (same_row)
       fprintf (rawfile, "\n");
     if (raw_choice && strlen (raw_choice)) {
@@ -130,7 +144,7 @@ void write_text_files(TWERD *word,
     }
   }
   /* Text file output */
-  if (write_output) {
+  if (tord_write_output) {
     if (same_row)
       fprintf (textfile, "\n");
     if (word->guess && strlen (word->guess)) {

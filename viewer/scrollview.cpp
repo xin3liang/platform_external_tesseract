@@ -17,6 +17,8 @@
 //
 ///////////////////////////////////////////////////////////////////////
 //
+
+#ifndef GRAPHICS_DISABLED
 // This class contains the main ScrollView-logic,
 // e.g. parsing & sending messages, images etc.
 #ifdef WIN32
@@ -36,9 +38,16 @@ const int kMaxIntPairSize = 45;  // Holds %d,%d, for upto 64 bit.
 #include <utility>
 #include <algorithm>
 #include <vector>
+#include <string>
+#include <cstring>
+#include <climits>
 
 #include "svutil.h"
 
+// Include automatically generated configuration file if running autoconf.
+#ifdef HAVE_CONFIG_H
+#include "config_auto.h"
+#endif
 #ifdef HAVE_LIBLEPT
 #include "allheaders.h"
 #endif
@@ -300,14 +309,14 @@ void* ScrollView::StartEventHandler(void* a) {
     stream_->Flush();
     sv->semaphore_->Wait();
     new_event = NULL;
-    int serial = INT_MAX;
+    int serial = -1;
     int k = -1;
     sv->mutex_->Lock();
     // Check every table entry if he is is valid and not already processed.
 
     for (int i = 0; i < SVET_COUNT; i++) {
-      if ((sv->event_table_[i] != NULL) &&
-          (sv->event_table_[i]->counter < serial)) {
+      if (sv->event_table_[i] != NULL &&
+          (serial < 0 || sv->event_table_[i]->counter < serial)) {
         new_event = sv->event_table_[i];
         serial = sv->event_table_[i]->counter;
         k = i;
@@ -714,9 +723,9 @@ void ScrollView::ZoomToRectangle(int x1, int y1, int x2, int y2) {
           MIN(x1, x2), MIN(y1, y2), MAX(x1, x2), MAX(y1, y2));
 }
 
-#ifdef HAVE_LIBLEPT
 // Send an image of type PIX.
-void ScrollView::Image(PIX* image, int x_pos, int y_pos) {
+void ScrollView::Image(Pix* image, int x_pos, int y_pos) {
+#ifdef HAVE_LIBLEPT
   int width = image->w;
   int height = image->h;
   l_uint32 bpp = image->d;
@@ -732,10 +741,12 @@ void ScrollView::Image(PIX* image, int x_pos, int y_pos) {
   }
   // PIX* do not have a unique identifier/name associated, so name them "lept".
   SendMsg("drawImage('%s',%d,%d)", "lept", x_pos, y_pos);
+#endif
 }
 
 // Sends each pixel as hex value like html, e.g. #00FF00 for green.
-void ScrollView::Transfer32bppImage(PIX* image) {
+void ScrollView::Transfer32bppImage(Pix* image) {
+#ifdef HAVE_LIBLEPT
   int ppL = pixGetWidth(image);
   int h = pixGetHeight(image);
   int wpl = pixGetWpl(image);
@@ -754,10 +765,12 @@ void ScrollView::Transfer32bppImage(PIX* image) {
     SendRawMessage(pixel_data);
   }
   delete[] pixel_data;
+#endif
 }
 
 // Sends for each pixel either '1' or '0'.
-void ScrollView::TransferGrayImage(PIX* image) {
+void ScrollView::TransferGrayImage(Pix* image) {
+#ifdef HAVE_LIBLEPT
   char* pixel_data = new char[image->w * 2 + 2];
   for (int y = 0; y < image->h; y++) {
     l_uint32* data = pixGetData(image) + y * pixGetWpl(image);
@@ -769,10 +782,12 @@ void ScrollView::TransferGrayImage(PIX* image) {
     }
   }
   delete [] pixel_data;
+#endif
 }
 
 // Sends for each pixel either '1' or '0'.
-void ScrollView::TransferBinaryImage(PIX* image) {
+void ScrollView::TransferBinaryImage(Pix* image) {
+#ifdef HAVE_LIBLEPT
   char* pixel_data = new char[image->w + 2];
   for (int y = 0; y < image->h; y++) {
     l_uint32* data = pixGetData(image) + y * pixGetWpl(image);
@@ -787,8 +802,8 @@ void ScrollView::TransferBinaryImage(PIX* image) {
     SendRawMessage(pixel_data);
   }
   delete [] pixel_data;
-}
 #endif
+}
 
 // Escapes the ' character with a \, so it can be processed by LUA.
 // Note: The caller will have to make sure he deletes the newly allocated item.
@@ -815,3 +830,5 @@ int ScrollView::TranslateYCoordinate(int y) {
   if (!y_axis_is_reversed_) { return y;
   } else { return y_size_ - y; }
 }
+
+#endif  // GRAPHICS_DISABLED

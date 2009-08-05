@@ -88,11 +88,11 @@ class ScriptDetector {
   tesseract::Tesseract* tess_;
 };
 
-void orientation_and_script_detection(STRING& filename,
+bool orientation_and_script_detection(STRING& filename,
                                       OSResults*,
                                       tesseract::Tesseract*);
 
-void os_detect(TO_BLOCK_LIST* port_blocks,
+bool os_detect(TO_BLOCK_LIST* port_blocks,
                OSResults* osr,
                tesseract::Tesseract* tess);
 

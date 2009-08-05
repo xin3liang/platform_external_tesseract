@@ -161,6 +161,13 @@ C_BLOB::C_BLOB(                              //constructor
   }
 }
 
+// Build and return a fake blob containing a single fake outline with no
+// steps.
+C_BLOB* C_BLOB::FakeBlob(const TBOX& box) {
+  C_OUTLINE_LIST outlines;
+  C_OUTLINE::FakeOutline(box, &outlines);
+  return new C_BLOB(&outlines);
+}
 
 /**********************************************************************
  * C_BLOB::bounding_box
@@ -196,6 +203,25 @@ inT32 C_BLOB::area() {  //area
   for (it.mark_cycle_pt (); !it.cycled_list (); it.forward ()) {
     outline = it.data ();
     total += outline->area ();
+  }
+  return total;
+}
+
+/**********************************************************************
+ * C_BLOB::perimeter
+ *
+ * Return the perimeter of the top and 2nd level outlines.
+ **********************************************************************/
+
+inT32 C_BLOB::perimeter() {
+  C_OUTLINE *outline;            // current outline
+  C_OUTLINE_IT it = &outlines;   // outlines of blob
+  inT32 total;                   // total perimeter
+
+  total = 0;
+  for (it.mark_cycle_pt(); !it.cycled_list(); it.forward()) {
+    outline = it.data();
+    total += outline->perimeter();
   }
   return total;
 }
@@ -257,6 +283,36 @@ void C_BLOB::move(                  // reposition blob
 
   for (it.mark_cycle_pt (); !it.cycled_list (); it.forward ())
     it.data ()->move (vec);      // move each outline
+}
+
+// Static helper for C_BLOB::rotate to allow recursion of child outlines.
+void RotateOutlineList(const FCOORD& rotation, C_OUTLINE_LIST* outlines) {
+  C_OUTLINE_LIST new_outlines;
+  C_OUTLINE_IT src_it(outlines);
+  C_OUTLINE_IT dest_it(&new_outlines);
+  while (!src_it.empty()) {
+    C_OUTLINE* old_outline = src_it.extract();
+    src_it.forward();
+    C_OUTLINE* new_outline = new C_OUTLINE(old_outline, rotation);
+    if (!old_outline->child()->empty()) {
+      RotateOutlineList(rotation, old_outline->child());
+      C_OUTLINE_IT child_it(new_outline->child());
+      child_it.add_list_after(old_outline->child());
+    }
+    delete old_outline;
+    dest_it.add_to_end(new_outline);
+  }
+  src_it.add_list_after(&new_outlines);
+}
+
+/**********************************************************************
+ * C_BLOB::rotate
+ *
+ * Rotate C_BLOB by rotation.
+ * Warning! has to rebuild all the C_OUTLINEs.
+ **********************************************************************/
+void C_BLOB::rotate(const FCOORD& rotation) {
+  RotateOutlineList(rotation, &outlines);
 }
 
 

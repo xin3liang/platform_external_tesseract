@@ -50,16 +50,15 @@ class Classify : public CCStruct {
                             CLASS_CUTOFF_ARRAY ExpectedNumFeatures,
                             CLASS_PRUNER_RESULTS Results,
                             int Debug);
-  void ReadNewCutoffs(const char *Filename,
+  void ReadNewCutoffs(FILE *CutoffFile, inT64 end_offset,
                                 CLASS_CUTOFF_ARRAY Cutoffs);
   void PrintAdaptedTemplates(FILE *File, ADAPT_TEMPLATES Templates);
   void WriteAdaptedTemplates(FILE *File, ADAPT_TEMPLATES Templates);
   ADAPT_TEMPLATES ReadAdaptedTemplates(FILE *File);
   /* normmatch.cpp ************************************************************/
   FLOAT32 ComputeNormMatch(CLASS_ID ClassId, FEATURE Feature, BOOL8 DebugMatch);
-  void GetNormProtos();
   void FreeNormProtos();
-  NORM_PROTOS *ReadNormProtos(FILE *File);
+  NORM_PROTOS *ReadNormProtos(FILE *File, inT64 end_offset);
   /* protos.cpp ***************************************************************/
   void ReadClassFile();
   INT_TEMPLATES
@@ -158,7 +157,8 @@ class Classify : public CCStruct {
   void AdaptiveClassifier(TBLOB *Blob,
                           TBLOB *DotBlob,
                           TEXTROW *Row,
-                          BLOB_CHOICE_LIST *Choices);
+                          BLOB_CHOICE_LIST *Choices,
+                          CLASS_PRUNER_RESULTS cp_results);
   void ClassifyAsNoise(ADAPT_RESULTS *Results);
   void ResetAdaptiveClassifier();
 
@@ -201,6 +201,8 @@ class Classify : public CCStruct {
      templates */
   INT_TEMPLATES PreTrainedTemplates;
   ADAPT_TEMPLATES AdaptedTemplates;
+  // Successful load of inttemp allows base tesseract classfier to be used.
+  bool inttemp_loaded_;
 
   /* create dummy proto and config masks for use with the built-in templates */
   BIT_VECTOR AllProtosOn;
@@ -212,6 +214,8 @@ class Classify : public CCStruct {
   // External control of adaption.
   BOOL_VAR_H(classify_enable_learning, true, "Enable adaptive classifier");
   // Internal control of Adaption so it doesn't work on pass2.
+  BOOL_VAR_H(classify_recog_devanagari, false,
+             "Whether recognizing a language with devanagari script.");
   bool EnableLearning;
   /* normmatch.cpp */
   NORM_PROTOS *NormProtos;

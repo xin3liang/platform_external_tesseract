@@ -433,9 +433,9 @@ const OUTLINE & source           //from this
   start = source.start;
   if (!outline.empty ())
     outline.clear ();
-  outline.deep_copy (&source.outline);
+  outline.deep_copy(&source.outline, &POLYPT::deep_copy);
   if (!children.empty ())
     children.clear ();
-  children.deep_copy (&source.children);
+  children.deep_copy(&source.children, &OUTLINE::deep_copy);
   return *this;
 }

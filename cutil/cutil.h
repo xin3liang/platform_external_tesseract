@@ -41,6 +41,7 @@ Import original HP distribution
 #include <stdlib.h>
 
 #include "general.h"
+#include "tprintf.h"
 
 /*----------------------------------------------------------------------
                       T y p e s
@@ -80,7 +81,7 @@ typedef void (*void_dest) (void *);
  **********************************************************************/
 
 #define new_line()  \
-  printf ("\n")
+  tprintf("\n")
 
 /**********************************************************************
  * print_string

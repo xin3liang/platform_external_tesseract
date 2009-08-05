@@ -27,7 +27,6 @@
 #include          "notdll.h"
 #include "choices.h"
 #include "oldlist.h"
-#include "hyphen.h"
 #include "tface.h"
 #include "permute.h"
 #include "adaptmatch.h"
@@ -42,7 +41,6 @@
 #include "badwords.h"
 #include "structures.h"
 
-#define BLOB_MATCHING_ON
 typedef void (*TESS_TESTER) (TBLOB *, BOOL8, char *, inT32, LIST);
 typedef LIST (*TESS_MATCHER) (TBLOB *, TBLOB *, TBLOB *, void *, TEXTROW *);
 

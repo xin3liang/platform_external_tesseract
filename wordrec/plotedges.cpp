@@ -30,6 +30,8 @@
 #include "render.h"
 #include "split.h"
 
+#ifndef GRAPHICS_DISABLED
+
 /*----------------------------------------------------------------------
               V a r i a b l e s
 ----------------------------------------------------------------------*/
@@ -71,7 +73,7 @@ void draw_blob_edges(TBLOB *blob) {
   TESSLINE *ol;
   LIST edge_list = NIL;
 
-  if (display_splits) {
+  if (wordrec_display_splits) {
     for (ol = blob->outlines; ol != NULL; ol = ol->next)
       push_on (edge_list, ol->loop);
     display_edgepts(edge_list);
@@ -128,3 +130,5 @@ void mark_split(SPLIT *split) {
   c_draw (window, (float) split->point2->pos.x, (float) split->point2->pos.y);
   c_make_current(window);
 }
+
+#endif  // GRAPHICS_DISABLED

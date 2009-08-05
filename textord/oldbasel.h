@@ -23,6 +23,8 @@
 #include          "varable.h"
 #include          "blobbox.h"
 #include          "notdll.h"
+#include          "tesseractclass.h"
+
 extern BOOL_VAR_H (textord_really_old_xheight, FALSE,
 "Use original wiseowl xheight");
 extern BOOL_VAR_H (textord_oldbl_debug, FALSE,
@@ -43,15 +45,20 @@ extern double_VAR_H (textord_oldbl_jumplimit, 0.15,
 "X fraction for new partition");
 void make_old_baselines(                  //make splines
                         TO_BLOCK *block,  //block to do
-                        BOOL8 testing_on  //correct orientation
+                        BOOL8 testing_on, //correct orientation
+                        float gradient,
+                        tesseract::Tesseract *tess
                        );
 void correlate_lines(                 //cleanup lines
-                     TO_BLOCK *block  //block to do
+                     TO_BLOCK *block, //block to do
+                     float gradient,
+                     tesseract::Tesseract* tess
                     );
 void correlate_neighbours(                  //fix bad rows
                           TO_BLOCK *block,  /*block rows are in */
                           TO_ROW **rows,    /*rows of block */
-                          int rowcount      /*no of rows to do */
+                          int rowcount,     /*no of rows to do */
+                          tesseract::Tesseract* tess
                          );
 int correlate_with_stats(                //fix xheights
                          TO_ROW **rows,  /*rows of block */
@@ -62,7 +69,8 @@ void find_textlines(                  //get baseline
                     TO_BLOCK *block,  //block row is in
                     TO_ROW *row,      //row to do
                     int degree,       //required approximation
-                    QSPLINE *spline   //starting spline
+                    QSPLINE *spline,  //starting spline
+                    tesseract::Tesseract *tess
                    );
 int get_blob_coords(                    //get boxes
                     TO_ROW *row,        //row to use

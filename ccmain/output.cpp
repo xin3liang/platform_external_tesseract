@@ -49,9 +49,6 @@
 #define CTRL_TAB        '\011'   //tab
 #define CTRL_NEWLINE      '\012' //newline
 #define CTRL_HARDLINE   '\015'   //cr
-extern int NO_BLOCK;
-inT16 XOFFSET = 0;               //the image can be a part of bigger picture and we want to have the original coordinates
-inT16 YOFFSET = 0;
 
 EXTERN BOOL_EVAR (tessedit_write_block_separators, FALSE,
 "Write block separators in output");
@@ -142,17 +139,8 @@ void Tesseract::output_pass(  //Tess output pass //send to api
     if (tessedit_write_block_separators &&
     block_of_last_word != page_res_it.block ()) {
       block_of_last_word = page_res_it.block ();
-      if (block_of_last_word->block->text_region () == NULL) {
-        if (block_of_last_word->block->poly_block () == NULL)
-          block_id = 1;
-        else
-          block_id =
-            ((WEIRD_BLOCK *) block_of_last_word->block->poly_block ())->
-            id_no();
-      }
-      else
-        block_id = block_of_last_word->block->text_region ()->id_no ();
-      if (!NO_BLOCK)
+      block_id = block_of_last_word->block->index();
+      if (!wordrec_no_block)
         fprintf (textfile, "|^~tr%d\n", block_id);
       fprintf (txt_mapfile, "|^~tr%d\n", block_id);
     }
@@ -177,7 +165,7 @@ void Tesseract::output_pass(  //Tess output pass //send to api
   if (write_to_shm)
     ocr_send_text(FALSE);
   if (tessedit_write_block_separators) {
-    if (!NO_BLOCK)
+    if (!wordrec_no_block)
       fprintf (textfile, "|^~tr\n");
     fprintf (txt_mapfile, "|^~tr\n");
   }
@@ -312,7 +300,7 @@ void Tesseract::write_results(                        //output a word
     txt_chs[txt_index] = '\0';
     map_chs[txt_index] = '\0';
                                  //xiaofan
-    if (tessedit_write_output && !NO_BLOCK)
+    if (tessedit_write_output && !wordrec_no_block)
       fprintf (textfile, "%s", txt_chs);
 
     if (tessedit_write_txt_map)
@@ -320,8 +308,7 @@ void Tesseract::write_results(                        //output a word
 
                                  //terminate string
     ep_chars[ep_chars_index] = '\0';
-    word->ep_choice =
-      new WERD_CHOICE (ep_chars, NULL, 0, 0, NO_PERM, unicharset);
+    word->ep_choice = new WERD_CHOICE(ep_chars, unicharset);
 
     if (force_eol)
       empty_block = TRUE;
@@ -375,7 +362,7 @@ void Tesseract::write_results(                        //output a word
   if (tessedit_rejection_debug) {
     tprintf ("Dict word: \"%s\": %d\n",
              word->best_choice->debug_string(unicharset).string(),
-             dict_word(word->best_choice->unichar_string().string()));
+             dict_word(*(word->best_choice)));
   }
 
 #if 0
@@ -649,114 +636,6 @@ char determine_newline_type(                   //test line ends
   //              end_gap>width ? CTRL_HARDLINE : CTRL_NEWLINE);
   return end_gap > width ? CTRL_HARDLINE : CTRL_NEWLINE;
 }
-
-
-/**********************************************************************
- * write_cooked_text
- *
- * Write the cooked text (with bold for pass2 and underline for reject)
- * to the given file.
- **********************************************************************/
-
-#if 0
-void write_cooked_text(                     //write output
-                       WERD *word,          //word to do
-                       const STRING &text,  //text to write
-                       BOOL8 acceptable,    //good stuff
-                       BOOL8 pass2,         //done on pass2
-                       FILE *fp             //file to write
-                      ) {
-  inT16 index;                   //blank counter
-  int status;
-  static int newaline = 1;
-  static int havespace = 0;
-  char buff[512];
-  const char *wordstr = text.string ();
-  int i = 0;
-  char unrecognised = STRING (unrecognised_char)[0];
-  static int old_segs = 0;
-  TBOX mybox;
-  for (i = 0; wordstr[i] != '\0'; i++) {
-    if (wordstr[i] == ' ')
-      buff[i] = unrecognised;
-    else
-      buff[i] = wordstr[i];
-  }
-  buff[i] = '\0';
-
-  if (fp == stdout) {
-    tprintf ("Cooked=%s, %d segs, acceptable=%d",
-      buff, num_popped - old_segs, acceptable);
-    old_segs = num_popped;
-    return;
-  }
-
-  if (text.length () > 0) {
-    for (index = 0; index < word->space (); index++) {
-      status = fprintf (fp, " ");
-      havespace = 1;
-      if (status < 0)
-        WRITEFAILED.error ("write_cooked_text", EXIT,
-          "Space Errno: %d", errno);
-    }
-    if (pass2) {
-      status = fprintf (fp, BOLD_ON);
-      if (status < 0)
-        WRITEFAILED.error ("write_cooked_text", EXIT,
-          "Bold Errno: %d", errno);
-    }
-    if (!acceptable) {
-      status = fprintf (fp, UNDERLINE_ON);
-      if (status < 0)
-        WRITEFAILED.error ("write_cooked_text", EXIT,
-          "Underline Errno: %d", errno);
-    }
-
-                                 //xiaofan
-    if (NO_BLOCK && word && strlen (buff)) {
-      mybox = word->bounding_box ();
-      if (newaline || !havespace) {
-        fprintf (fp, " ");
-        newaline = 0;
-      }
-      fprintf (fp, "(%d," INT32FORMAT ",%d," INT32FORMAT ")",
-        XOFFSET + mybox.left (),
-        YOFFSET + page_image.get_ysize () - mybox.top (),
-        XOFFSET + mybox.right (),
-        YOFFSET + page_image.get_ysize () - mybox.bottom ());
-      havespace = 0;
-    }
-
-    status = fprintf (fp, "%s", buff);
-    if (status < 0)
-      WRITEFAILED.error ("write_cooked_text", EXIT,
-        "Word Errno: %d", errno);
-    if (pass2) {
-      status = fprintf (fp, BOLD_OFF);
-      if (status < 0)
-        WRITEFAILED.error ("write_cooked_text", EXIT,
-          "Bold off Errno: %d", errno);
-    }
-    if (!acceptable) {
-      status = fprintf (fp, UNDERLINE_OFF);
-      if (status < 0)
-        WRITEFAILED.error ("write_cooked_text", EXIT,
-          "Underline off Errno: %d", errno);
-    }
-  }
-  if (word->flag (W_EOL)) {
-    status = fprintf (fp, "\n");
-    newaline = 1;
-    if (status < 0)
-      WRITEFAILED.error ("write_cooked_text", EXIT,
-        "Newline Errno: %d", errno);
-  }
-  status = fflush (fp);
-  if (status != 0)
-    WRITEFAILED.error ("write_cooked_text", EXIT, "Fflush Errno: %d", errno);
-}
-#endif
-
 
 /**********************************************************************
  * write_shm_text
@@ -1136,7 +1015,7 @@ void Tesseract::set_unlv_suspects(WERD_RES *word_res) {
 
   /* NOW FOR LEVELS 1 and 2 Find some stuff to unreject*/
 
-  if (safe_dict_word(word.unichar_string().string()) &&
+  if (safe_dict_word(word) &&
       (count_alphas(word) > suspect_short_words)) {
     /* Unreject alphas in dictionary words */
     for (i = 0; i < len; ++i) {

@@ -27,9 +27,12 @@ class C_BLOB:public ELIST_LINK
 {
   public:
     C_BLOB() {
-    }                            //empty constructor
-    C_BLOB(  //constructor //in random order
-           C_OUTLINE_LIST *outline_list);
+    }
+    explicit C_BLOB(C_OUTLINE_LIST *outline_list);
+
+    // Build and return a fake blob containing a single fake outline with no
+    // steps.
+    static C_BLOB* FakeBlob(const TBOX& box);
 
     C_OUTLINE_LIST *out_list() {  //get outline list
       return &outlines;
@@ -37,19 +40,18 @@ class C_BLOB:public ELIST_LINK
 
     TBOX bounding_box();  //compute bounding box
     inT32 area();  //compute area
+    inT32 perimeter();  // Total perimeter of outlines and 1st level children.
     inT32 outer_area();  //compute area
     inT32 count_transitions(                   //count maxima
                             inT32 threshold);  //size threshold
 
-    void move(                    // reposition blob
-              const ICOORD vec);  // by vector
+    void move(const ICOORD vec);  // repostion blob by vector
+    void rotate(const FCOORD& rotation);  // Rotate by given vector.
 
-#ifndef GRAPHICS_DISABLED
     void plot(                       //draw one
               ScrollView* window,         //window to draw in
               ScrollView::Color blob_colour,    //for outer bits
               ScrollView::Color child_colour);  //for holes
-#endif
 
     void prep_serialise() {  //set ptrs to counts
       outlines.prep_serialise ();
@@ -66,13 +68,19 @@ class C_BLOB:public ELIST_LINK
     }
 
                                  //assignment
-    make_serialise (C_BLOB) C_BLOB & operator= (
-    const C_BLOB & source) {     //from this
+    make_serialise(C_BLOB)
+
+    C_BLOB& operator= (const C_BLOB & source) {
       if (!outlines.empty ())
         outlines.clear ();
-
-      outlines.deep_copy (&source.outlines);
+      outlines.deep_copy(&source.outlines, &C_OUTLINE::deep_copy);
       return *this;
+    }
+
+    static C_BLOB* deep_copy(const C_BLOB* src) {
+      C_BLOB* blob = new C_BLOB;
+      *blob = *src;
+      return blob;
     }
 
   private:

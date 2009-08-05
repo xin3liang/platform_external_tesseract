@@ -28,13 +28,20 @@
 #define CONTEXT_H
 
 #include "choices.h"
+#include "ratngs.h"
 
 /*----------------------------------------------------------------------
               F u n c t i o n s
 ----------------------------------------------------------------------*/
-void close_choices();
+namespace tesseract {
 
-void fix_quotes(char *str);
+class Context {
+ public:
+  static int case_ok(const WERD_CHOICE &word, const UNICHARSET &unicharset);
+};
+}  // namespace tesseract
+
+void close_choices();
 
 void write_choice_line();
 

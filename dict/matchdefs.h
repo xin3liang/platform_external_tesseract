@@ -28,8 +28,6 @@
 /* define the maximum number of classes defined for any matcher
   and the maximum class id for any matcher. This must be changed
   if more different classes need to be classified */
-/* Script Detection: Put this value to the size of the unicharset. Currently a
- * value of 9000 is enough. */
 #define MAX_NUM_CLASSES   8192
 #define MAX_CLASS_ID    (MAX_NUM_CLASSES - 1)
 
@@ -80,36 +78,12 @@ typedef MATCH_RESULT SORTED_CLASSES[MAX_CLASS_ID + 1];
 /**----------------------------------------------------------------------------
           Public Function Prototypes
 ----------------------------------------------------------------------------**/
-/* all feature matchers that are to be used with the high level
+/*
+  all feature matchers that are to be used with the high level
   classifier must support the following interface.  The names will, of
   course, be unique for each different matcher.  Note also that
   FEATURE_STRUCT is a data structure that is defined specifically for
   each feature extractor/matcher pair.
-
-void						InitClassifier		();
-
-void						InitClassifierVars	();
-
-int							TweekClassifier		(char *Params);
-
-void						InitQuickGuess		(FEATURE_STRUCT *CharFeatures);
-
-CLASS_ID					NextQuickGuess		();
-
-void						MatchCharToClass	(CLASS_ID
-              ClassID,
-                          FEATURE_STRUCT
-              *CharFeatures,
-                          MATCH_RESULT
-              *MatchResult);
-
-void						DebugMatch		(CLASS_ID
-              ClassID,
-                          FEATURE_STRUCT
-              *CharFeatures,
-          MATCH_RESULT
-              *MatchResult);
-
 */
 
 /* misc test functions for proto id's and feature id's */

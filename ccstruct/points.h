@@ -62,6 +62,9 @@ class DLLSYM ICOORD              //integer coordinate
       ycoord = yin;
     }
 
+    // Set from the given x,y, shrinking the vector to fit if needed.
+    void set_with_shrink(int x, int y);
+
     float sqlength() const {  //find sq length
       return (float) (xcoord * xcoord + ycoord * ycoord);
     }
@@ -128,6 +131,14 @@ class DLLSYM ICOORD              //integer coordinate
     void rotate(                    //rotate
                 const FCOORD& vec);  //by vector
 
+    // Setup for iterating over the pixels in a vector by the well-known
+    // Bresenham rendering algorithm.
+    // Starting with major/2 in the accumulator, on each step move by
+    // major_step, and then add minor to the accumulator. When
+    // accumulator >= major subtract major and also move by minor_step.
+    void setup_render(ICOORD* major_step, ICOORD* minor_step,
+                      int* major, int* minor) const;
+
     void serialise_asc(  //serialise to ascii
                        FILE *f);
     void de_serialise_asc(  //serialise from ascii
@@ -170,8 +181,15 @@ class DLLSYM ICOORDELT:public ELIST_LINK, public ICOORD
     }
 
                                  //serialise to ascii
-    make_serialise (ICOORDELT) void serialise_asc (
-      FILE * f);
+    make_serialise(ICOORDELT)
+
+    static ICOORDELT* deep_copy(const ICOORDELT* src) {
+      ICOORDELT* elt = new ICOORDELT;
+      *elt = *src;
+      return elt;
+    }
+
+    void serialise_asc(FILE * f);
     void de_serialise_asc(  //serialise from ascii
                           FILE *f);
 

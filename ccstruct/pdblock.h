@@ -22,7 +22,7 @@
 
 #include          "img.h"
 #include          "strngs.h"
-#include          "pageblk.h"
+#include          "polyblk.h"
 
 #include          "hpddef.h"     //must be last (handpd.dll)
 
@@ -33,26 +33,10 @@ class DLLSYM PDBLK               //page block
 {
   friend class BLOCK_RECT_IT;    //block iterator
 
-                                 //block label
-  friend void scan_hpd_blocks(const char *name,
-                              PAGE_BLOCK_LIST *page_blocks,  //head of full pag
-                              inT32 &block_no,               //no of blocks
-                              PDBLK_C_IT *block_it);
-  friend BOOL8 read_vec_file(              //read uscan output
-                             STRING name,  //basename of file
-                             inT32 xsize,  //page size //output list
-                             inT32 ysize,
-                             PDBLK_CLIST *blocks);
-  friend BOOL8 read_pd_file(              //read uscan output
-                            STRING name,  //basename of file
-                            inT32 xsize,  //page size //output list
-                            inT32 ysize,
-                            PDBLK_CLIST *blocks);
-
   public:
     PDBLK() {  //empty constructor
-      hand_block = NULL;
       hand_poly = NULL;
+      index_ = 0;
     }
     PDBLK(             //simple constructor
           inT16 xmin,  //bottom left
@@ -65,11 +49,9 @@ class DLLSYM PDBLK               //page block
                    ICOORDELT_LIST *right);  //list of right vertices
 
     ~PDBLK () {                  //destructor
+      if (hand_poly) delete hand_poly;
     }
 
-    TEXT_REGION *text_region() {
-      return hand_block;
-    }
     POLY_BLOCK *poly_block() {
       return hand_poly;
     }
@@ -88,13 +70,19 @@ class DLLSYM PDBLK               //page block
       return box;
     }
 
+    int index() const {
+      return index_;
+    }
+    void set_index(int value) {
+      index_ = value;
+    }
+
     BOOL8 contains(  //is pt inside block
                    ICOORD pt);
 
     void move(                    // reposition block
               const ICOORD vec);  // by vector
 
-#ifndef GRAPHICS_DISABLED
     void plot(                 //draw histogram
               ScrollView* window,   //window to draw in
               inT32 serial,    //serial number
@@ -103,17 +91,16 @@ class DLLSYM PDBLK               //page block
     void show(                 //show image
               IMAGE *image,    //image to show
               ScrollView* window);  //window to show in
-#endif
 
     PDBLK & operator= (          //assignment
       const PDBLK & source);     //from this
 
   protected:
-    TEXT_REGION * hand_block;    //if it exists
     POLY_BLOCK *hand_poly;       //wierd as well
     ICOORDELT_LIST leftside;     //left side vertices
     ICOORDELT_LIST rightside;    //right side vertices
     TBOX box;                     //bounding box
+    int index_;                  // Serial number of this block.
 };
 
 class DLLSYM BLOCK_RECT_IT       //rectangle iterator

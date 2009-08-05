@@ -42,5 +42,8 @@ void put_match(TBLOB *blob, BLOB_CHOICE_LIST *ratings);
 
 BLOB_CHOICE_LIST *get_match(TBLOB *blob);
 
-BLOB_CHOICE_LIST *get_match_by_bounds(unsigned int topleft, unsigned int botright);
+BLOB_CHOICE_LIST *get_match_by_bounds(unsigned int topleft,
+                                      unsigned int botright);
+
+void add_to_match(TBLOB *blob, BLOB_CHOICE_LIST *ratings);
 #endif

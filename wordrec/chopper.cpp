@@ -51,7 +51,6 @@
 #include "wordclass.h"
 #include "wordrec.h"
 
-extern int blob_skip;
 INT_VAR (repair_unchopped_blobs, 1, "Fix blobs that aren't chopped");
 
 //?extern int tessedit_dangambigs_chop;
@@ -105,7 +104,7 @@ void preserve_outline_tree(TESSLINE *srcline) {
   for (outline = srcline; outline != NULL; outline = outline->next) {
     preserve_outline (outline->loop);
   }
-  if (srcline->child != NULL)
+  if (srcline != NULL && srcline->child != NULL)
     preserve_outline_tree (srcline->child);
 }
 
@@ -156,7 +155,7 @@ void restore_outline_tree(TESSLINE *srcline) {
     outline->loop = restore_outline (outline->loop);
     outline->start = outline->loop->pos;
   }
-  if (srcline->child != NULL)
+  if (srcline != NULL && srcline->child != NULL)
     restore_outline_tree (srcline->child);
 }
 
@@ -321,7 +320,7 @@ bool Wordrec::improve_one_blob(TWERD *word,
       return false;
     answer_it.set_to_list(answer);
     rating_ceiling = answer_it.data()->rating();  // try a different blob
-  } while (!blob_skip);
+  } while (!tord_blob_skip);
   /* Split OK */
   for (blob = word->blobs, pblob = NULL; x < *blob_number; x++) {
     pblob = blob;
@@ -342,8 +341,101 @@ bool Wordrec::improve_one_blob(TWERD *word,
 
   return true;
 }
-}  // namespace tesseract
 
+/**********************************************************************
+ * modify_blob_choice
+ *
+ * Takes a blob and its chop index, converts that chop index to a
+ * unichar_id, and stores the chop index in place of the blob's
+ * original unichar_id.
+ *********************************************************************/
+void Wordrec::modify_blob_choice(BLOB_CHOICE_LIST *answer,
+                        int chop_index) {
+  char chop_index_string[2];
+  if (chop_index <= 9) {
+    snprintf(chop_index_string, sizeof(chop_index_string), "%d", chop_index);
+  } else {
+    chop_index_string[0] = static_cast<char>('A' - 10 + chop_index);
+    chop_index_string[1] = '\0';
+  }
+  UNICHAR_ID unichar_id = unicharset.unichar_to_id(chop_index_string);
+  ASSERT_HOST(unichar_id!=INVALID_UNICHAR_ID);
+  BLOB_CHOICE_IT answer_it(answer);
+  BLOB_CHOICE *modified_blob = new BLOB_CHOICE(unichar_id,
+                                             answer_it.data()->rating(),
+                                             answer_it.data()->certainty(),
+                                             answer_it.data()->config(),
+                                             answer_it.data()->script_id());
+  answer->clear();
+  answer_it.set_to_list(answer);
+  answer_it.add_after_then_move(modified_blob);
+}
+
+/**********************************************************************
+ * chop_one_blob
+ *
+ * Start with the current one-blob word and its classification.  Find
+ * the worst blobs and try to divide it up to improve the ratings.
+ * Used for testing chopper.
+ *********************************************************************/
+bool Wordrec::chop_one_blob(TWERD *word,
+                               BLOB_CHOICE_LIST_VECTOR *char_choices,
+                               inT32 *blob_number,
+                               SEAMS *seam_list,
+                               int *right_chop_index) {
+  TBLOB *pblob;
+  TBLOB *blob;
+  inT16 x = 0;
+  float rating_ceiling = MAX_FLOAT32;
+  BLOB_CHOICE_LIST *answer;
+  BLOB_CHOICE_IT answer_it;
+  SEAM *seam;
+  UNICHAR_ID unichar_id = 0;
+  int left_chop_index = 0;
+
+  do {
+    *blob_number = select_blob_to_split(*char_choices, rating_ceiling,
+                                        false);
+    if (chop_debug)
+      cprintf("blob_number = %d\n", *blob_number);
+    if (*blob_number == -1)
+      return false;
+    seam = attempt_blob_chop(word, *blob_number, *seam_list);
+    if (seam != NULL)
+      break;
+    /* Must split null blobs */
+    answer = char_choices->get(*blob_number);
+    if (answer == NULL)
+      return false;
+    answer_it.set_to_list(answer);
+    rating_ceiling = answer_it.data()->rating();  // try a different blob
+  } while (!tord_blob_skip);
+  /* Split OK */
+  for (blob = word->blobs, pblob = NULL; x < *blob_number; x++) {
+    pblob = blob;
+    blob = blob->next;
+  }
+  *seam_list =
+    insert_seam(*seam_list, *blob_number, seam, blob, word->blobs);
+
+  answer = char_choices->get(*blob_number);
+  answer_it.set_to_list(answer);
+  unichar_id = answer_it.data()->unichar_id();
+  left_chop_index = atoi(unicharset.id_to_unichar(unichar_id));
+
+  delete char_choices->get(*blob_number);
+  // combine confidence w/ serial #
+  answer = classify_blob(pblob, blob, blob->next, NULL, "improve 1:", Red);
+  modify_blob_choice(answer, left_chop_index);
+  char_choices->insert(answer, *blob_number);
+
+  answer = classify_blob(blob, blob->next, blob->next->next, NULL,
+                         "improve 2:", Yellow);
+  modify_blob_choice(answer, ++*right_chop_index);
+  char_choices->set(answer, *blob_number + 1);
+  return true;
+}
+}  // namespace tesseract
 
 /**********************************************************************
  * check_seam_order
@@ -387,7 +479,6 @@ inT16 check_seam_order(TBLOB *blob, SEAM *seam) {
   else
     return (TRUE);
 }
-
 
 /**********************************************************************
  * chop_word_main
@@ -444,10 +535,12 @@ BLOB_CHOICE_LIST_VECTOR *Wordrec::chop_word_main(register TWERD *word,
     chop_states[state_count] = state;
     state_count++;
   }
-  if (!getDict().AcceptableChoice(*char_choices, *best_choice, *raw_choice,
-                                  &fixpt, CHOPPER_CALLER) ||
+  bool replaced = false;
+  if (!getDict().AcceptableChoice(char_choices, best_choice, *raw_choice,
+                                  &fixpt, CHOPPER_CALLER, &replaced) ||
       ((tester || trainer) &&
        strcmp(word->correct, best_choice->unichar_string().string()))) {
+    if (replaced) update_blob_classifications(word, *char_choices);
     did_chopping = 1;
     if (first_pass)
       words_chopped1++;
@@ -467,9 +560,15 @@ BLOB_CHOICE_LIST_VECTOR *Wordrec::chop_word_main(register TWERD *word,
                           &state_count);
     if (chop_debug)
       print_seams ("Final seam list:", seam_list);
-    if ((enable_assoc &&
-         !getDict().AcceptableChoice(*char_choices, *best_choice,
-                                     *raw_choice, NULL, CHOPPER_CALLER)) ||
+
+    // The force_word_assoc is almost redundant to enable_assoc.  However,
+    // it is not conditioned on the dict behavior.  For CJK, we need to force
+    // the associator to be invoked.  When we figure out the exact behavior
+    // of dict on CJK, we can remove the flag if it turns out to be redundant.
+    if ((wordrec_enable_assoc &&
+         !getDict().AcceptableChoice(char_choices, best_choice, *raw_choice,
+                                     NULL, CHOPPER_CALLER, &replaced)) ||
+        force_word_assoc ||
         ((tester || trainer) &&
          strcmp(word->correct, best_choice->unichar_string().string()))) {
       ratings = word_associator (word->blobs, seam_list, &state, fx,
@@ -477,12 +576,13 @@ BLOB_CHOICE_LIST_VECTOR *Wordrec::chop_word_main(register TWERD *word,
         /*0, */ &fixpt, &best_state);
     }
     bits_in_states = bit_count + state_count - 1;
-
   }
+  if (replaced) update_blob_classifications(word, *char_choices);
 
   char_choices =
     rebuild_current_state(word->blobs, seam_list, &state, char_choices, fx,
-                          (did_chopping || tester || trainer), *best_choice);
+                          (did_chopping || tester || trainer), *best_choice,
+                          ratings);
 
   if (ratings != NULL) {
     ratings->delete_matrix_pointers();
@@ -493,7 +593,7 @@ BLOB_CHOICE_LIST_VECTOR *Wordrec::chop_word_main(register TWERD *word,
   if (matcher_fp != NULL) {
     best_state = state;
   }
-  FilterWordChoices();
+  getDict().FilterWordChoices();
   return char_choices;
 }
 
@@ -523,15 +623,17 @@ void Wordrec::improve_by_chopping(register TWERD *word,
   float old_best;
   int fixpt_valid = 1;
   static inT32 old_count;        //from pass1
+  bool replaced = false;
 
   do {  // improvement loop
+    if (replaced) update_blob_classifications(word, *char_choices);
     if (!fixpt_valid)
       fixpt->index = -1;
     old_best = best_choice->rating();
     if (improve_one_blob(word, char_choices, fx, &blob_number, seam_list,
                          fixpt, (fragments_guide_chopper &&
                                  best_choice->fragment_mark()))) {
-      LogNewSplit(blob_number);
+      getDict().LogNewSplit(blob_number);
       getDict().permute_characters(*char_choices, best_choice->rating(),
                                    best_choice, raw_choice);
 
@@ -562,9 +664,10 @@ void Wordrec::improve_by_chopping(register TWERD *word,
     } else {
       break;
     }
-  } while (!getDict().AcceptableChoice(*char_choices, *best_choice,
-                                       *raw_choice, fixpt, CHOPPER_CALLER) &&
-           !blob_skip && char_choices->length() < MAX_NUM_CHUNKS);
+  } while (!getDict().AcceptableChoice(char_choices, best_choice, *raw_choice,
+                                       fixpt, CHOPPER_CALLER, &replaced) &&
+           !tord_blob_skip && char_choices->length() < MAX_NUM_CHUNKS);
+  if (replaced) update_blob_classifications(word, *char_choices);
   old_count = *state_count;
   if (!fixpt_valid)
     fixpt->index = -1;
@@ -753,7 +856,9 @@ MATRIX *Wordrec::word_associator(TBLOB *blobs,
   chunks_record.fx = fxid;
   /* Save chunk weights */
   for (x = 0; x < num_chunks; x++) {
-    blob_choice_it.set_to_list(chunks_record.ratings->get(x, x));
+    BLOB_CHOICE_LIST* choices = get_piece_rating(chunks_record.ratings,
+                                                 blobs, seams, x, x);
+    blob_choice_it.set_to_list(choices);
     //This is done by Jetsoft. Divide by zero is possible.
     if (blob_choice_it.data()->certainty() == 0) {
       blob_weights[x]=0;
@@ -780,3 +885,4 @@ MATRIX *Wordrec::word_associator(TBLOB *blobs,
   return chunks_record.ratings;
 }
 }  // namespace tesseract
+

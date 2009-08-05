@@ -25,13 +25,9 @@
 #include "bestfirst.h"
 #include "context.h"
 #include "gradechop.h"
-#include "hyphen.h"
 /* includes for init */
-#include "msmenus.h"
-#include "djmenus.h"
 #include "tessinit.h"
 #include "mfvars.h"
-#include "variables.h"
 #include "metrics.h"
 #include "adaptmatch.h"
 #include "matchtab.h"
@@ -61,7 +57,9 @@ namespace tesseract {
 ----------------------------------------------------------------------*/
 static PRIORITY pass2_ok_split;
 static int pass2_seg_states;
-extern int NO_BLOCK;
+
+BOOL_VAR(wordrec_no_block, false, "Don't output block information");
+
 /*----------------------------------------------------------------------
               Function Code
 ----------------------------------------------------------------------*/
@@ -71,9 +69,9 @@ extern int NO_BLOCK;
  * Startup recog program ready to recognize words.
  **********************************************************************/
 namespace tesseract {
-int Wordrec::start_recog(const char *configfile, const char *textbase) {
+int Wordrec::start_recog(const char *textbase) {
 
-  program_editup(configfile, textbase);
+  program_editup(textbase, true);
   return (0);
 }
 
@@ -82,20 +80,10 @@ int Wordrec::start_recog(const char *configfile, const char *textbase) {
  * program_editup
  *
  * Initialize all the things in the program that need to be initialized.
+ * init_permute determines whether to initialize the permute functions
+ * and Dawg models.
  **********************************************************************/
-void Wordrec::program_editup(const char *configfile, const char *textbase) {
-  init_ms_debug();
-  init_dj_debug();
-
-  program_variables();
-  mfeature_variables();
-
-  if (configfile != NULL) {
-    //              cprintf ("Reading configuration from file '%s'\n", configfile);
-    /* Read config file */
-    read_variables(configfile);
-  }
-
+void Wordrec::program_editup(const char *textbase, bool init_permute) {
   if (textbase != NULL) {
     imagefile = textbase;
     /* Read in data files */
@@ -105,12 +93,13 @@ void Wordrec::program_editup(const char *configfile, const char *textbase) {
   /* Initialize subsystems */
   program_init();
   mfeature_init();  // assumes that imagefile is initialized
+  if (init_permute)
   getDict().init_permute();
   setup_cp_maps();
 
   init_metrics();
-  pass2_ok_split = ok_split;
-  pass2_seg_states = num_seg_states;
+  pass2_ok_split = chop_ok_split;
+  pass2_seg_states = wordrec_num_seg_states;
 }
 }  // namespace tesseract
 
@@ -124,13 +113,13 @@ void Wordrec::program_editup(const char *configfile, const char *textbase) {
 void edit_with_ocr(const char *imagename) {
   char name[FILENAMESIZE];       /*base name of file */
 
-  if (write_output) {
+  if (tord_write_output) {
     strcpy(name, imagename);
     strcat (name, ".txt");
                                  //xiaofan
     textfile = open_file (name, "w");
   }
-  if (write_raw_output) {
+  if (tord_write_raw_output) {
     strcpy(name, imagename);
     strcat (name, ".raw");
     rawfile = open_file (name, "w");
@@ -167,19 +156,19 @@ int Wordrec::end_recog() {
  **********************************************************************/
 void Wordrec::program_editdown(inT32 elasped_time) {
   dj_cleanup();
-  if (display_text)
+  if (tord_display_text)
     cprintf ("\n");
-  if (!NO_BLOCK && write_output)
+  if (!wordrec_no_block && tord_write_output)
     fprintf (textfile, "\n");
-  if (write_raw_output)
+  if (tord_write_raw_output)
     fprintf (rawfile, "\n");
-  if (write_output) {
+  if (tord_write_output) {
     #ifdef __UNIX__
     fsync (fileno (textfile));
     #endif
     fclose(textfile);
   }
-  if (write_raw_output) {
+  if (tord_write_raw_output) {
     #ifdef __UNIX__
     fsync (fileno (rawfile));
     #endif
@@ -189,14 +178,13 @@ void Wordrec::program_editdown(inT32 elasped_time) {
   if (tessedit_save_stats)
     save_summary (elasped_time);
   end_match_table();
-  InitChoiceAccum();
+  getDict().InitChoiceAccum();
   if (global_hash != NULL) {
     free_mem(global_hash);
     global_hash = NULL;
   }
   end_metrics();
   getDict().end_permute();
-  free_variables();
 }
 
 
@@ -206,9 +194,9 @@ void Wordrec::program_editdown(inT32 elasped_time) {
  * Get ready to do some pass 1 stuff.
  **********************************************************************/
 void Wordrec::set_pass1() {
-  blob_skip = FALSE;
-  ok_split = 70.0;
-  num_seg_states = 15;
+  tord_blob_skip.set_value(false);
+  chop_ok_split.set_value(70.0);
+  wordrec_num_seg_states.set_value(15);
   SettupPass1();
   first_pass = 1;
 }
@@ -220,9 +208,9 @@ void Wordrec::set_pass1() {
  * Get ready to do some pass 2 stuff.
  **********************************************************************/
 void Wordrec::set_pass2() {
-  blob_skip = FALSE;
-  ok_split = pass2_ok_split;
-  num_seg_states = pass2_seg_states;
+  tord_blob_skip.set_value(false);
+  chop_ok_split.set_value(pass2_ok_split);
+  wordrec_num_seg_states.set_value(pass2_seg_states);
   SettupPass2();
   first_pass = 0;
 }
@@ -237,7 +225,8 @@ BLOB_CHOICE_LIST_VECTOR *Wordrec::cc_recog(TWERD *tessword,
                                            WERD_CHOICE *best_choice,
                                            WERD_CHOICE *best_raw_choice,
                                            BOOL8 tester,
-                                           BOOL8 trainer) {
+                                           BOOL8 trainer,
+                                           bool last_word_on_line) {
   int fx;
   BLOB_CHOICE_LIST_VECTOR *results;          /*matcher results */
 
@@ -247,7 +236,8 @@ BLOB_CHOICE_LIST_VECTOR *Wordrec::cc_recog(TWERD *tessword,
     class_string (best_choice) = NULL;
     return NULL;
   }
-  InitChoiceAccum();
+  getDict().InitChoiceAccum();
+  getDict().reset_hyphen_vars(last_word_on_line);
   init_match_table();
   for (fx = 0; fx < MAX_FX && (acts[OCR] & (FXSELECT << fx)) == 0; fx++);
   results =
@@ -258,7 +248,6 @@ BLOB_CHOICE_LIST_VECTOR *Wordrec::cc_recog(TWERD *tessword,
                    tester,
                    trainer);
   getDict().DebugWordChoices();
-  reset_hyphen_word();
   ReleaseErrorTrap();
   return results;
 }
@@ -267,14 +256,10 @@ BLOB_CHOICE_LIST_VECTOR *Wordrec::cc_recog(TWERD *tessword,
 /**********************************************************************
  * dict_word()
  *
- * Test the dictionaries, returning NO_PERM (0) if not found, or one of the
- * DAWG_PERM values if found, according to the dictionary.
+ * Test the dictionaries, returning NO_PERM (0) if not found, or one
+ * of the PermuterType values if found, according to the dictionary.
  **********************************************************************/
-int Wordrec::dict_word(const char *word) {
-
-  if (getDict().test_freq_words (word))
-    return FREQ_DAWG_PERM;
-  else
+int Wordrec::dict_word(const WERD_CHOICE &word) {
     return getDict().valid_word (word);
 }
 
@@ -303,7 +288,7 @@ BLOB_CHOICE_LIST *Wordrec::call_matcher(TBLOB *ptblob,    //previous
     // segmentations, fake a really bad classification.
     BLOB_CHOICE *choice =
       new BLOB_CHOICE(0, static_cast<float>(MAX_NUM_INT_FEATURES),
-                      static_cast<float>(kReallyBadCertainty), 0, NULL);
+                      static_cast<float>(-MAX_FLOAT32), 0, NULL);
     BLOB_CHOICE_IT temp_it;
     temp_it.set_to_list(ratings);
     temp_it.add_after_stay_put(choice);

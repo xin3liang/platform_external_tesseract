@@ -21,7 +21,6 @@
 #include "speckle.h"
 
 #include "blobs.h"
-#include "debug.h"
 #include "ratngs.h"
 #include "varable.h"
 

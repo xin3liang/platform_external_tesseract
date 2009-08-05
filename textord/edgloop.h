@@ -20,9 +20,7 @@
 #ifndef           EDGLOOP_H
 #define           EDGLOOP_H
 
-#ifndef GRAPHICS_DISABLED
 #include          "scrollview.h"
-#endif
 #include          "varable.h"
 #include          "img.h"
 #include          "pdblock.h"
@@ -58,12 +56,7 @@ DLLSYM void get_outlines(                      //edge detect
 void complete_edge(                  //clean and approximate
                    CRACKEDGE *start  //start of loop
                   );
-#ifndef GRAPHICS_DISABLED
-ScrollView::Color 
-#else
-bool
-#endif
-check_path_legal(                  //certify outline
+ScrollView::Color check_path_legal(                  //certify outline
                         CRACKEDGE *start  //start of loop
                        );
 inT16 loop_bounding_box(                    //get bounding box

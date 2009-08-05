@@ -31,9 +31,7 @@
 //#include          "evnts.h"
 //#include          "showim.h"
 #include          "hosthplb.h"
-#ifndef GRAPHICS_DISABLED
 #include          "scrollview.h"
-#endif
 //#include          "evnts.h"
 #include          "adaptions.h"
 #include          "matmatch.h"

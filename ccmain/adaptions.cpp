@@ -99,6 +99,13 @@ namespace tesseract {
 BOOL8 Tesseract::word_adaptable(  //should we adapt?
                                 WERD_RES *word,
                                 uinT16 mode) {
+  if (tessedit_adaption_debug) {
+    tprintf("Running word_adaptable() for %s rating %.4f certainty %.4f\n",
+          word->best_choice == NULL ? "" :
+          word->best_choice->unichar_string().string(),
+          word->best_choice->rating(), word->best_choice->certainty());
+  }
+
   BOOL8 status = FALSE;
   BITS16 flags(mode);
 
@@ -116,39 +123,54 @@ BOOL8 Tesseract::word_adaptable(  //should we adapt?
   0: NO adaption
   */
   if (mode == 0) {
+    if (tessedit_adaption_debug) tprintf("adaption disabled\n");
     return FALSE;
   }
 
-  if (flags.bit (ADAPTABLE_WERD))
-    status |= word->tess_would_adapt;
+  if (flags.bit (ADAPTABLE_WERD)) {
+    status |= word->tess_would_adapt;  // result of Classify::AdaptableWord()
+    if (tessedit_adaption_debug && !status) {
+      tprintf("tess_would_adapt bit is false\n");
+    }
+  }
 
-  if (flags.bit (ACCEPTABLE_WERD))
+  if (flags.bit (ACCEPTABLE_WERD)) {
     status |= word->tess_accepted;
+    if (tessedit_adaption_debug && !status) {
+      tprintf("tess_accepted bit is false\n");
+    }
+  }
 
-  if (!status)                   // If not set then
+  if (!status) {                  // If not set then
     return FALSE;                // ignore other checks
+  }
 
   if (flags.bit (CHECK_DAWGS) &&
     (word->best_choice->permuter () != SYSTEM_DAWG_PERM) &&
     (word->best_choice->permuter () != FREQ_DAWG_PERM) &&
     (word->best_choice->permuter () != USER_DAWG_PERM) &&
-    (word->best_choice->permuter () != NUMBER_PERM))
+    (word->best_choice->permuter () != NUMBER_PERM)) {
+    if (tessedit_adaption_debug) tprintf("word not in dawgs\n");
     return FALSE;
+  }
 
-  if (flags.bit (CHECK_ONE_ELL_CONFLICT) && one_ell_conflict (word, FALSE))
+  if (flags.bit (CHECK_ONE_ELL_CONFLICT) && one_ell_conflict (word, FALSE)) {
+    if (tessedit_adaption_debug) tprintf("word has ell conflict\n");
     return FALSE;
+  }
 
   if (flags.bit (CHECK_SPACES) &&
-    (strchr(word->best_choice->unichar_string().string(), ' ') != NULL))
+    (strchr(word->best_choice->unichar_string().string(), ' ') != NULL)) {
+    if (tessedit_adaption_debug) tprintf("word contains spaces\n");
     return FALSE;
+  }
 
 //  if (flags.bit (CHECK_AMBIG_WERD) && test_ambig_word (word))
   if (flags.bit (CHECK_AMBIG_WERD) &&
-      !getDict().NoDangerousAmbig(
-          word->best_choice->unichar_string().string(),
-          word->best_choice->unichar_lengths().string(),
-          NULL))
+      !getDict().NoDangerousAmbig(word->best_choice, NULL, false, NULL, NULL)) {
+    if (tessedit_adaption_debug) tprintf("word is ambiguous\n");
     return FALSE;
+  }
 
   // Do not adapt to words that are composed from fragments if
   // tessedit_adapt_to_char_fragments is false.
@@ -157,12 +179,16 @@ BOOL8 Tesseract::word_adaptable(  //should we adapt?
     if (fragment_lengths != NULL && *fragment_lengths != '\0') {
       for (int i = 0; i < word->best_choice->length(); ++i) {
         if (fragment_lengths[i] > 1) {
+          if (tessedit_adaption_debug) tprintf("won't adapt to fragments\n");
           return false;  // found a character composed from fragments
         }
       }
     }
   }
 
+  if (tessedit_adaption_debug) {
+    tprintf("returning status %d\n", status);
+  }
   return status;
 
 }

@@ -39,10 +39,15 @@
 #define EXTERN
 
 EXTERN BOOL_VAR (textord_fp_chopping, TRUE, "Do fixed pitch chopping");
+EXTERN BOOL_VAR (textord_force_make_prop_words, FALSE,
+                 "Force proportional word segmentation on all rows");
+EXTERN BOOL_VAR (textord_chopper_test, FALSE,
+                 "Chopper is being tested.");
 extern /*"C" */ ETEXT_DESC *global_monitor;     //progress monitor
 
 #define FIXED_WIDTH_MULTIPLE  5
 #define BLOCK_STATS_CLUSTERS  10
+
 
 /**********************************************************************
  * make_single_word
@@ -525,14 +530,21 @@ void make_real_words(                  //find lines
       real_row = make_rep_words (row, block);
     }
     else if (!row->blob_list ()->empty ()) {
-      //                      tprintf("Row pitch_decision=%d",row->pitch_decision);
-      if (row->pitch_decision == PITCH_DEF_FIXED
-        || row->pitch_decision == PITCH_CORR_FIXED)
-        real_row = fixed_pitch_words (row, rotation);
-      else if (row->pitch_decision == PITCH_DEF_PROP
-        || row->pitch_decision == PITCH_CORR_PROP)
+      // In a fixed pitch document, some lines may be detected as fixed pitch
+      // while others don't, and will go through different path.
+      // For non-space delimited language like CJK, fixed pitch chop always
+      // leave the entire line as one word.  We can force consistent chopping
+      // with force_make_prop_words flag.
+      if (textord_chopper_test) {
+        real_row = make_blob_words (row, rotation);
+      } else if (textord_force_make_prop_words ||
+          row->pitch_decision == PITCH_DEF_PROP ||
+          row->pitch_decision == PITCH_CORR_PROP) {
         real_row = make_prop_words (row, rotation);
-      else
+      } else if (row->pitch_decision == PITCH_DEF_FIXED ||
+                 row->pitch_decision == PITCH_CORR_FIXED) {
+        real_row = fixed_pitch_words (row, rotation);
+      } else
         ASSERT_HOST(FALSE);
     }
     if (real_row != NULL) {
@@ -660,3 +672,4 @@ WERD *make_real_word(                      //make a WERD
   }
   return word;
 }
+

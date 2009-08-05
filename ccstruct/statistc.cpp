@@ -662,7 +662,6 @@ void STATS::short_print(            //print stats table
  * Draw a histogram of the stats table.
  **********************************************************************/
 
-#ifndef GRAPHICS_DISABLED
 void STATS::plot(                //plot stats table
                  ScrollView* window,  //to draw in
                  float xorigin,  //bottom left
@@ -671,6 +670,7 @@ void STATS::plot(                //plot stats table
                  float yscale,   //one y unit
                  ScrollView::Color colour   //colour to draw in
                 ) {
+#ifndef GRAPHICS_DISABLED
   inT32 index;                   //table index
 
   if (buckets == NULL) {
@@ -686,8 +686,8 @@ void STATS::plot(                //plot stats table
       xorigin + xscale * (index + 1),
       yorigin + yscale * buckets[index]);
   }
-}
 #endif
+}
 
 
 /**********************************************************************
@@ -696,7 +696,6 @@ void STATS::plot(                //plot stats table
  * Draw a histogram of the stats table. (Line only
  **********************************************************************/
 
-#ifndef GRAPHICS_DISABLED
 void STATS::plotline(                //plot stats table
                      ScrollView* window,  //to draw in
                      float xorigin,  //bottom left
@@ -705,6 +704,7 @@ void STATS::plotline(                //plot stats table
                      float yscale,   //one y unit
                      ScrollView::Color colour   //colour to draw in
                     ) {
+#ifndef GRAPHICS_DISABLED
   inT32 index;                   //table index
 
   if (buckets == NULL) {
@@ -719,8 +719,8 @@ void STATS::plotline(                //plot stats table
   for (index = 0; index < rangemax - rangemin; index++) {
     window->DrawTo(xorigin + xscale * index,      yorigin + yscale * buckets[index]);
   }
-}
 #endif
+}
 
 
 /**********************************************************************

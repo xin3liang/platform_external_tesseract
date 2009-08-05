@@ -34,8 +34,6 @@ typedef enum {
 -----------------------------------------------------------------------------*/
 FEATURE_SET ExtractMicros(TBLOB *Blob, LINE_STATS *LineStats); 
 
-void InitMicroFXVars(); 
-
 /**----------------------------------------------------------------------------
         Global Data Definitions and Declarations
 ----------------------------------------------------------------------------**/

@@ -22,13 +22,16 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "tprintf.h"
 #include "unichar.h"
 #include "unicharset.h"
+#include "varable.h"
 
 static const int ISALPHA_MASK = 0x1;
 static const int ISLOWER_MASK = 0x2;
 static const int ISUPPER_MASK = 0x4;
 static const int ISDIGIT_MASK = 0x8;
+static const int ISPUNCTUATION_MASK = 0x10;
 
 UNICHARSET::UNICHARSET() :
     unichars(NULL),
@@ -38,16 +41,20 @@ UNICHARSET::UNICHARSET() :
     script_table(0),
     script_table_size_used(0),
     script_table_size_reserved(0),
-    null_script("NULL")
-{
-}
+    null_script("NULL"),
+    null_sid_(0),
+    common_sid_(0),
+    latin_sid_(0),
+    cyrillic_sid_(0),
+    greek_sid_(0),
+    han_sid_(0) {}
 
 UNICHARSET::~UNICHARSET() {
   if (size_reserved > 0) {
     for (int i = 0; i < script_table_size_used; ++i)
       delete[] script_table[i];
     delete[] script_table;
-    delete_fragments();
+    delete_pointers_in_unichars();
     delete[] unichars;
   }
 }
@@ -146,6 +153,7 @@ STRING UNICHARSET::debug_str(UNICHAR_ID id) const {
                                     fragment->get_total());
   }
   const char* str = id_to_unichar(id);
+  if (id == INVALID_UNICHAR_ID) return STRING(str);
   STRING result = debug_utf8_str(str);
   // Append a for lower alpha, A for upper alpha, and x if alpha but neither.
   if (get_isalpha(id)) {
@@ -160,6 +168,10 @@ STRING UNICHARSET::debug_str(UNICHAR_ID id) const {
   if (get_isdigit(id)) {
     result += "0";
   }
+  // Append p is a punctuation symbol.
+  if (get_ispunctuation(id)) {
+    result += "p";
+  }
   return result;
 }
 
@@ -167,6 +179,11 @@ STRING UNICHARSET::debug_str(UNICHAR_ID id) const {
 
 void UNICHARSET::unichar_insert(const char* const unichar_repr) {
   if (!ids.contains(unichar_repr)) {
+    if (strlen(unichar_repr) > UNICHAR_LEN) {
+      fprintf(stderr, "Utf8 buffer too big, size=%d for %s\n",
+              int(strlen(unichar_repr)), unichar_repr);
+      return;
+    }
     if (size_used == size_reserved) {
       if (size_used == 0)
         reserve(8);
@@ -179,36 +196,43 @@ void UNICHARSET::unichar_insert(const char* const unichar_repr) {
     this->set_islower(size_used, false);
     this->set_isupper(size_used, false);
     this->set_isdigit(size_used, false);
+    this->set_ispunctuation(size_used, false);
+    this->set_isngram(size_used, false);
     this->set_script(size_used, null_script);
-    this->unichars[size_used].properties.fragment =
-      CHAR_FRAGMENT::parse_from_string(unichar_repr);
+    // If the given unichar_repr represents a fragmented character, set
+    // fragment property to a pointer to CHAR_FRAGMENT class instance with
+    // information parsed from the unichar representation. Use the script
+    // of the base unichar for the fragmented character if possible.
+    CHAR_FRAGMENT *frag = CHAR_FRAGMENT::parse_from_string(unichar_repr);
+    this->unichars[size_used].properties.fragment = frag;
+    if (frag != NULL && this->contains_unichar(frag->get_unichar())) {
+      this->unichars[size_used].properties.script_id =
+        this->get_script(frag->get_unichar());
+    }
     this->unichars[size_used].properties.enabled = true;
     ids.insert(unichar_repr, size_used);
     ++size_used;
   }
 }
 
-bool UNICHARSET::contains_unichar(const char* const unichar_repr) {
+bool UNICHARSET::contains_unichar(const char* const unichar_repr) const {
   return ids.contains(unichar_repr);
 }
 
-bool UNICHARSET::contains_unichar(const char* const unichar_repr, int length) {
+bool UNICHARSET::contains_unichar(const char* const unichar_repr,
+                                  int length) const {
   if (length == 0) {
     return false;
   }
   return ids.contains(unichar_repr, length);
 }
 
-bool UNICHARSET::eq(UNICHAR_ID unichar_id, const char* const unichar_repr) {
+bool UNICHARSET::eq(UNICHAR_ID unichar_id,
+                    const char* const unichar_repr) const {
   return strcmp(this->id_to_unichar(unichar_id), unichar_repr) == 0;
 }
 
-bool UNICHARSET::save_to_file(const char* filename) const {
-  FILE* file = fopen(filename, "w+");
-
-  if (file == NULL)
-    return false;
-
+bool UNICHARSET::save_to_file(FILE *file) const {
   fprintf(file, "%d\n", this->size());
   for (UNICHAR_ID id = 0; id < this->size(); ++id) {
     unsigned int properties = 0;
@@ -221,30 +245,28 @@ bool UNICHARSET::save_to_file(const char* filename) const {
       properties |= ISUPPER_MASK;
     if (this->get_isdigit(id))
       properties |= ISDIGIT_MASK;
+    if (this->get_ispunctuation(id))
+      properties |= ISPUNCTUATION_MASK;
 
     if (strcmp(this->id_to_unichar(id), " ") == 0)
-      fprintf(file, "%s %x %s\n", "NULL", properties,
-              this->get_script_from_script_id(this->get_script(id)));
+      fprintf(file, "%s %x %s %d\n", "NULL", properties,
+              this->get_script_from_script_id(this->get_script(id)),
+              this->get_other_case(id));
     else
-      fprintf(file, "%s %x %s\n", this->id_to_unichar(id), properties,
-              this->get_script_from_script_id(this->get_script(id)));
+      fprintf(file, "%s %x %s %d\n", this->id_to_unichar(id), properties,
+              this->get_script_from_script_id(this->get_script(id)),
+              this->get_other_case(id));
   }
-  fclose(file);
   return true;
 }
 
-bool UNICHARSET::load_from_file(const char* filename) {
-  FILE* file = fopen(filename, "r");
+bool UNICHARSET::load_from_file(FILE *file) {
   int unicharset_size;
   char buffer[256];
-
-  if (file == NULL)
-    return false;
 
   this->clear();
   if (fgets(buffer, sizeof (buffer), file) == NULL ||
       sscanf(buffer, "%d", &unicharset_size) != 1) {
-    fclose(file);
     return false;
   }
   this->reserve(unicharset_size);
@@ -253,11 +275,13 @@ bool UNICHARSET::load_from_file(const char* filename) {
     unsigned int properties;
     char script[64];
 
+    strcpy(script, null_script);
+    this->unichars[id].properties.other_case = id;
     if (fgets(buffer, sizeof (buffer), file) == NULL ||
-        (sscanf(buffer, "%s %x %63s", unichar, &properties, script) != 3 &&
-        !(sscanf(buffer, "%s %x", unichar, &properties) == 2 &&
-         strcpy(script, null_script)))) {
-      fclose(file);
+        (sscanf(buffer, "%s %x %63s %d", unichar, &properties,
+                script, &(this->unichars[id].properties.other_case)) != 4 &&
+         sscanf(buffer, "%s %x %63s", unichar, &properties, script) != 3 &&
+         sscanf(buffer, "%s %x", unichar, &properties) != 2)) {
       return false;
     }
     if (strcmp(unichar, "NULL") == 0)
@@ -265,16 +289,23 @@ bool UNICHARSET::load_from_file(const char* filename) {
     else
       this->unichar_insert(unichar);
 
-    this->set_isalpha(id, properties & ISALPHA_MASK);
-    this->set_islower(id, properties & ISLOWER_MASK);
-    this->set_isupper(id, properties & ISUPPER_MASK);
-    this->set_isdigit(id, properties & ISDIGIT_MASK);
+    this->set_isalpha(id, (properties & ISALPHA_MASK) != 0);
+    this->set_islower(id, (properties & ISLOWER_MASK) != 0);
+    this->set_isupper(id, (properties & ISUPPER_MASK) != 0);
+    this->set_isdigit(id, (properties & ISDIGIT_MASK) != 0);
+    this->set_ispunctuation(id, (properties & ISPUNCTUATION_MASK) != 0);
+    this->set_isngram(id, false);
     this->set_script(id, script);
-    this->unichars[id].properties.fragment =
-      CHAR_FRAGMENT::parse_from_string(unichar);
     this->unichars[id].properties.enabled = true;
   }
-  fclose(file);
+
+  null_sid_ = get_script_id_from_name(null_script);
+  ASSERT_HOST(null_sid_ == 0);
+  common_sid_ = get_script_id_from_name("Common");
+  latin_sid_ = get_script_id_from_name("Latin");
+  cyrillic_sid_ = get_script_id_from_name("Cyrillic");
+  greek_sid_ = get_script_id_from_name("Greek");
+  han_sid_ = get_script_id_from_name("Han");
   return true;
 }
 
@@ -371,4 +402,12 @@ CHAR_FRAGMENT *CHAR_FRAGMENT::parse_from_string(const char *string) {
   CHAR_FRAGMENT *fragment = new CHAR_FRAGMENT();
   fragment->set_all(unichar, pos, total);
   return fragment;
+}
+
+int UNICHARSET::get_script_id_from_name(const char* script_name) const {
+  for (int i = 0; i < script_table_size_used; ++i) {
+    if (strcmp(script_name, script_table[i]) == 0)
+      return i;
+  }
+  return 0;  // 0 is always the null_script
 }

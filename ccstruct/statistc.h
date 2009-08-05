@@ -21,9 +21,7 @@
 #define           STATISTC_H
 
 #include          <stdio.h>
-#ifndef GRAPHICS_DISABLED
 #include          "scrollview.h"
-#endif
 #include	  "host.h"
 
 class DLLSYM STATS               //statistics package
@@ -100,7 +98,6 @@ class DLLSYM STATS               //statistics package
                      FILE *fp,     //file to print on
                      BOOL8 dump);  //dump whole table
 
-#ifndef GRAPHICS_DISABLED
     void plot(                 //draw histogram rect
               ScrollView* window,   //window to draw in
               float xorigin,   //origin of histo
@@ -116,7 +113,6 @@ class DLLSYM STATS               //statistics package
                   float xscale,    //size of one unit
                   float yscale,    //size of one uint
                   ScrollView::Color colour);  //colour to draw in
-#endif
 };
 DLLSYM inT32 choose_nth_item(               //fast median
                              inT32 index,   //index to choose

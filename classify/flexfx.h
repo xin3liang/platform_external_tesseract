@@ -30,5 +30,4 @@
 ----------------------------------------------------------------------------**/
 CHAR_DESC ExtractFlexFeatures(TBLOB *Blob, LINE_STATS *LineStats); 
 
-void InitFlexFXVars(); 
 #endif

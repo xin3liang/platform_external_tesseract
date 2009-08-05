@@ -423,8 +423,7 @@ void Tesseract::make_reject_map(      //make rej map for wd //detailed results
     tprintf ("Permuter Type = %d\n", word->best_choice->permuter ());
     tprintf ("Certainty: %f     Rating: %f\n",
       word->best_choice->certainty (), word->best_choice->rating ());
-    tprintf ("Dict word: %d\n",
-      dict_word (word->best_choice->unichar_string().string ()));
+    tprintf("Dict word: %d\n", dict_word(*(word->best_choice)));
   }
 
   /* Un-reject any rejected characters if NN permits */
@@ -689,7 +688,7 @@ BOOL8 Tesseract::one_ell_conflict(WERD_RES *word_res, BOOL8 update_map) {
     (rej_trust_doc_dawg &&
     (word_res->best_choice->permuter () == DOC_DAWG_PERM)) ||
     (word_res->best_choice->permuter () == FREQ_DAWG_PERM);
-  dict_word_type = dict_word (word);
+  dict_word_type = dict_word(*(word_res->best_choice));
   dict_word_ok = (dict_word_type > 0) &&
     (rej_trust_doc_dawg || (dict_word_type != DOC_DAWG_PERM));
 
@@ -701,7 +700,7 @@ BOOL8 Tesseract::one_ell_conflict(WERD_RES *word_res, BOOL8 update_map) {
     if (lengths[first_alphanum_index_] == 1 &&
         word[first_alphanum_offset_] == 'I') {
       word_res->best_choice->unichar_string()[first_alphanum_offset_] = 'l';
-      if (safe_dict_word (word) > 0) {
+      if (safe_dict_word(*(word_res->best_choice)) > 0) {
         word_res->best_choice->unichar_string()[first_alphanum_offset_] = 'I';
         if (update_map)
           word_res->reject_map[first_alphanum_index_].
@@ -717,7 +716,7 @@ BOOL8 Tesseract::one_ell_conflict(WERD_RES *word_res, BOOL8 update_map) {
     if (lengths[first_alphanum_index_] == 1 &&
         word[first_alphanum_offset_] == 'l') {
       word_res->best_choice->unichar_string()[first_alphanum_offset_] = 'I';
-      if (safe_dict_word (word) > 0) {
+      if (safe_dict_word(*(word_res->best_choice)) > 0) {
         word_res->best_choice->unichar_string()[first_alphanum_offset_] = 'l';
         if (update_map)
           word_res->reject_map[first_alphanum_index_].
@@ -748,7 +747,7 @@ BOOL8 Tesseract::one_ell_conflict(WERD_RES *word_res, BOOL8 update_map) {
   if (lengths[first_alphanum_index_] == 1 &&
       word[first_alphanum_offset_] == 'l') {
     word_res->best_choice->unichar_string()[first_alphanum_offset_] = 'I';
-    if (safe_dict_word (word) > 0)
+    if (safe_dict_word(*(word_res->best_choice)) > 0)
       return FALSE;
     else
       word_res->best_choice->unichar_string()[first_alphanum_offset_] = 'l';
@@ -756,7 +755,7 @@ BOOL8 Tesseract::one_ell_conflict(WERD_RES *word_res, BOOL8 update_map) {
   else if (lengths[first_alphanum_index_] == 1 &&
            word[first_alphanum_offset_] == 'I') {
     word_res->best_choice->unichar_string()[first_alphanum_offset_] = 'l';
-    if (safe_dict_word (word) > 0)
+    if (safe_dict_word(*(word_res->best_choice)) > 0)
       return FALSE;
     else
       word_res->best_choice->unichar_string()[first_alphanum_offset_] = 'I';
@@ -874,53 +873,10 @@ BOOL8 Tesseract::test_ambig_word(  //test for ambiguity
       (word->best_choice->permuter () == FREQ_DAWG_PERM) ||
     (word->best_choice->permuter () == USER_DAWG_PERM)) {
       ambig = !getDict().NoDangerousAmbig(
-          word->best_choice->unichar_string().string(),
-          word->best_choice->unichar_lengths().string(),
-          NULL);
+          word->best_choice, NULL, false, NULL, NULL);
   }
   return ambig;
 }
-
-
-/*************************************************************************
- * ambig_word()
- *
- * This is a recursive routine which tests the dictionary for all combinations
- * of conflict set alternatives for characters in a given word.
- *************************************************************************/
-BOOL8 Tesseract::ambig_word(                     //original word
-                 const char *start_word,
-                 char *temp_word,     //alterable copy
-                 inT16 test_char_pos  //idx to char to alter
-                ) {
-  const char *ambigs;            //Ambiguities for char
-
-  if (*(temp_word + test_char_pos) == '\0') {
-    if (safe_dict_word (temp_word)) {
-      if (strcmp (start_word, temp_word) == 0)
-        return FALSE;
-      else
-        return TRUE;
-    }
-    else
-      return FALSE;
-  }
-  else {
-    ambigs = char_ambiguities (*(temp_word + test_char_pos));
-    if (ambigs == NULL)
-      return ambig_word (start_word, temp_word, test_char_pos + 1);
-    else {
-      while (*ambigs != '\0') {
-        *(temp_word + test_char_pos) = *ambigs++;
-        //test next ambiguity
-        if (ambig_word (start_word, temp_word, test_char_pos + 1))
-          return TRUE;
-      }
-      return FALSE;
-    }
-  }
-}
-
 
 /*************************************************************************
  * char_ambiguities()
@@ -966,31 +922,6 @@ const char *Tesseract::char_ambiguities(char c) {
   }
   return NULL;
 }
-
-#ifndef EMBEDDED
-void Tesseract::test_ambigs(const char *word) {
-  char orig_word[80];
-  char temp_word[80];
-
-  if (strlen (word) > 80)
-    tprintf ("Ridiculously long word \"%s\"\n", word);
-  else {
-    strcpy(orig_word, word);
-    while (strlen (orig_word) > 0) {
-      strcpy(temp_word, orig_word);
-
-      #ifndef SECURE_NAMES
-      if (ambig_word (orig_word, temp_word, 0))
-        tprintf ("Ambiguity \"%s\" -> \"%s\"\n", orig_word, temp_word);
-      else
-        tprintf ("NO Ambiguities for  \"%s\"\n", orig_word);
-      tprintf ("Next Word > ");
-      #endif
-      scanf ("%s", orig_word);
-    }
-  }
-}
-#endif
 
 /*************************************************************************
  * nn_recover_rejects()
@@ -1092,7 +1023,8 @@ void Tesseract::nn_match_word(  //Match a word
   word_in_dict = ((word->best_choice->permuter () == SYSTEM_DAWG_PERM) ||
     (word->best_choice->permuter () == FREQ_DAWG_PERM) ||
     (word->best_choice->permuter () == USER_DAWG_PERM));
-  checked_dict_word = word_in_dict && (safe_dict_word (word_string) > 0);
+  checked_dict_word = word_in_dict &&
+    (safe_dict_word(*(word->best_choice)) > 0);
   sensible_word = acceptable_word_string (word_string, word_string_lengths) !=
       AC_UNACCEPTABLE;
 
@@ -1574,14 +1506,9 @@ BOOL8 Tesseract::repeated_ch_string(const char *rep_ch_str,
 }
 
 
-inT16 Tesseract::safe_dict_word(const char *s) {
-  int dict_word_type;
-
-  dict_word_type = dict_word (s);
-  if (dict_word_type == DOC_DAWG_PERM)
-    return 0;
-  else
-    return dict_word_type;
+inT16 Tesseract::safe_dict_word(const WERD_CHOICE &word) {
+  int dict_word_type = dict_word(word);
+  return dict_word_type == DOC_DAWG_PERM ? 0 : dict_word_type;
 }
 
 

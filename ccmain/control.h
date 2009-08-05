@@ -125,6 +125,10 @@ extern INT_VAR_H (tessedit_test_adaption_mode, 3,
 extern BOOL_VAR_H (test_pt, FALSE, "Test for point");
 extern double_VAR_H (test_pt_x, 99999.99, "xcoord");
 extern double_VAR_H (test_pt_y, 99999.99, "ycoord");
+extern BOOL_VAR_H(save_best_choices, FALSE,
+                  "Save the results of the recognition step"
+                  " (blob_choices) within the corresponding WERD_CHOICE");
+
 /*
 void classify_word_pass1(                 //recog one word
                          WERD_RES *word,  //word to do
@@ -155,7 +159,8 @@ void choice_dump_tester(                           //dump chars in word
                         inT32 count,               //chars in text
                         BLOB_CHOICE_LIST *ratings  //list of results
                        );
-WERD *make_bln_copy(WERD *src_word, ROW *row, float x_height, DENORM *denorm);
+WERD *make_bln_copy(WERD *src_word, ROW *row, BLOCK* block,
+                    float x_height, DENORM *denorm);
 BOOL8 check_debug_pt(WERD_RES *word, int location);
 void add_in_one_row(               //good chars in word
                     ROW_RES *row,  //current row

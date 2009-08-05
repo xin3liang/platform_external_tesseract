@@ -20,16 +20,20 @@
 // SVUtil contains the SVSync and SVNetwork classes, which are used for
 // thread/process creation & synchronization and network connection.
 
+#ifndef GRAPHICS_DISABLED
+
 #include "svutil.h"
 
 #ifdef WIN32
 #include <windows.h>
 #include <winsock.h>
 #else
-#include <stdlib.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
 #include <pthread.h>
 #include <semaphore.h>
 #include <signal.h>
+#include <stdlib.h>
 #include <string.h>
 #include <netdb.h>
 #include <sys/socket.h>
@@ -38,6 +42,7 @@
 #endif
 #endif
 
+#include <stdio.h>
 #include <iostream>
 
 const int kBufferSize = 65536;
@@ -266,8 +271,9 @@ SVNetwork::SVNetwork(const char* hostname, int port) {
 #elif defined(__linux__)
   struct hostent hp;
   int herr;
-  char buffer[kBufferSize];
+  char *buffer = new char[kBufferSize];
   gethostbyname_r(hostname, &hp, buffer, kBufferSize, &name, &herr);
+  delete[] buffer;
 #else
   name = gethostbyname(hostname);
 #endif
@@ -300,7 +306,7 @@ SVNetwork::SVNetwork(const char* hostname, int port) {
     // this unnecessary.
     // Also the path has to be separated by ; on windows and : otherwise.
 #ifdef WIN32
-    const char* prog = "java -Xms1024m -Xmx2048m";
+    const char* prog = "java -Xms512m -Xmx1024m";
     const char* cmd_template = "-Djava.library.path=%s -cp %s/ScrollView.jar;"
         "%s/piccolo-1.2.jar;%s/piccolox-1.2.jar"
         " com.google.scrollview.ScrollView";
@@ -338,3 +344,5 @@ SVNetwork::~SVNetwork() {
   delete[] msg_buffer_in_;
   delete mutex_send_;
 }
+
+#endif  // GRAPHICS_DISABLED

@@ -55,6 +55,8 @@ namespace tesseract {
 Classify::Classify()
   : INT_MEMBER(tessedit_single_match, FALSE, "Top choice only from CP"),
     BOOL_MEMBER(classify_enable_learning, true, "Enable adaptive classifier"),
+    BOOL_MEMBER(classify_recog_devanagari, false,
+                "Whether recognizing a language with devanagari script."),
     EnableLearning(true),
     dict_(&image_) {
   fontinfo_table_.set_compare_callback(
@@ -67,6 +69,7 @@ Classify::Classify()
       NewPermanentCallback(delete_callback_fs));
   AdaptedTemplates = NULL;
   PreTrainedTemplates = NULL;
+  inttemp_loaded_ = false;
   AllProtosOn = NULL;
   PrunedProtos = NULL;
   AllConfigsOn = NULL;

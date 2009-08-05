@@ -20,15 +20,15 @@
 #ifndef CALLCPP_H
 #define CALLCPP_H
 
+#ifndef __UNIX__
+#include <assert.h>
+#endif
 #include "host.h"
 #include "varable.h"
 #include "unichar.h"
 
 class ScrollView;
 
-#ifdef __cplusplus
-//extern "C" {
-#endif
 typedef enum {
   Black,
   White,
@@ -87,8 +87,6 @@ extern INT_VAR_H (tess_cp_mapping0, 0, "Mappings for class pruner distance");
 extern INT_VAR_H (tess_cp_mapping1, 1, "Mappings for class pruner distance");
 extern INT_VAR_H (tess_cp_mapping2, 2, "Mappings for class pruner distance");
 extern INT_VAR_H (tess_cp_mapping3, 3, "Mappings for class pruner distance");
-extern INT_VAR_H (stopper_numbers_on, 0,
-"Allow numbers to be acceptable choices");
 extern INT_VAR_H (record_matcher_output, 0, "Record detailed matcher info");
 extern INT_VAR_H (il1_adaption_test, 0,
 "Dont adapt to i/I at beginning of word");
@@ -102,11 +100,6 @@ extern char blob_answer[UNICHAR_LEN + 1];         //correct char
 extern char *word_answer;        //correct word
 extern inT32 bits_in_states;     //no of bits in states
 
-#ifndef __UNIX__
-void assert(             //recog one owrd
-            int testing  //assert fail if false
-           );
-#endif
 void setup_cp_maps();
 void cprintf (                   //Trace printf
 const char *format, ...          //special message
@@ -141,7 +134,4 @@ char window_wait(ScrollView* win);
 void reverse32(void *ptr);
 void reverse16(void *ptr);
 
-#ifdef __cplusplus
-//};
-#endif
 #endif

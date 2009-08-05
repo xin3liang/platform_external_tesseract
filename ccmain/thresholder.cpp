@@ -179,12 +179,16 @@ void ImageThresholder::SetImage(const Pix* pix) {
   Pix* src = const_cast<Pix*>(pix);
   int depth;
   pixGetDimensions(src, &image_width_, &image_height_, &depth);
+  // Convert the image as necessary so it is one of binary, plain RGB, or
+  // 8 bit with no colormap.
   if (depth > 1 && depth < 8) {
     pix_ = pixConvertTo8(src, false);
-    depth = pixGetDepth(pix_);
+  } else if (pixGetColormap(src)) {
+    pix_ = pixRemoveColormap(src, REMOVE_CMAP_BASED_ON_SRC);
   } else {
     pix_ = pixClone(src);
   }
+  depth = pixGetDepth(pix_);
   image_bytespp_ = depth / 8;
   image_bytespl_ = pixGetWpl(pix_) * sizeof(l_uint32);
   Init();
@@ -197,7 +201,7 @@ void ImageThresholder::ThresholdToPix(Pix** pix) {
   if (pix_ != NULL) {
     if (image_bytespp_ == 0) {
       // We have a binary image, so it just has to be cloned.
-      *pix = pixClone(pix_);
+      *pix = GetPixRect();
     } else {
       if (image_bytespp_ == 4) {
         // Color data can just be passed direct.

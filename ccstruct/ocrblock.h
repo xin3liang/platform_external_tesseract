@@ -22,7 +22,6 @@
 
 #include          "img.h"
 #include          "ocrrow.h"
-#include          "pageblk.h"
 #include          "pdblock.h"
 
 class BLOCK;                     //forward decl
@@ -33,29 +32,14 @@ class BLOCK:public ELIST_LINK, public PDBLK
 {
   friend class BLOCK_RECT_IT;    //block iterator
 
-                                 //block label
-  friend void scan_hpd_blocks(const char *name,
-                              PAGE_BLOCK_LIST *page_blocks,  //head of full pag
-                              inT32 &block_no,               //no of blocks
-                              BLOCK_IT *block_it);
-  friend BOOL8 read_vec_file(              //read uscan output
-                             STRING name,  //basename of file
-                             inT32 xsize,  //page size //output list
-                             inT32 ysize,
-                             BLOCK_LIST *blocks);
-  friend BOOL8 read_pd_file(              //read uscan output
-                            STRING name,  //basename of file
-                            inT32 xsize,  //page size //output list
-                            inT32 ysize,
-                            BLOCK_LIST *blocks);
-
   public:
-    BLOCK() {  //empty constructor
-      hand_block = NULL;
+  BLOCK()
+    : re_rotation_(1.0f, 0.0f),
+      classify_rotation_(1.0f, 0.0f),
+      skew_(1.0f, 0.0f) {
       hand_poly = NULL;
     }
-    BLOCK(                   //simple constructor
-          const char *name,  //filename
+  BLOCK(const char *name,  // filename
           BOOL8 prop,        //proportional
           inT16 kern,        //kerning
           inT16 space,       //spacing
@@ -64,15 +48,11 @@ class BLOCK:public ELIST_LINK, public PDBLK
           inT16 xmax,        //top right
           inT16 ymax);
 
-    //      void                                            set_sides(                                                 //set vertex lists
-    //              ICOORDELT_LIST       *left,                        //list of left vertices
-    //              ICOORDELT_LIST       *right);                      //list of right vertices
-
-    ~BLOCK () {                  //destructor
+  ~BLOCK () {
     }
 
-    void set_stats(                   //set space size etc.
-                   BOOL8 prop,        //proportional
+  // set space size etc.
+  void set_stats(BOOL8 prop,        // proportional
                    inT16 kern,        //inter char size
                    inT16 space,       //inter word size
                    inT16 ch_pitch) {  //pitch if fixed
@@ -81,22 +61,12 @@ class BLOCK:public ELIST_LINK, public PDBLK
       spacing = space;
       pitch = ch_pitch;
     }
-    void set_xheight(  //set char size
-                     inT32 height) {
+  void set_xheight(inT32 height) {  // set char size
       xheight = height;
     }
-    void set_font_class(  //set font class
-                        inT16 font) {
+  void set_font_class(inT16 font) {  // set font class
       font_class = font;
     }
-    //      TEXT_REGION*                            text_region()
-    //      {
-    //              return hand_block;
-    //      }
-    //      POLY_BLOCK*                                     poly_block()
-    //      {
-    //              return hand_poly;
-    //      }
     BOOL8 prop() const {  //return proportional
       return proportional;
     }
@@ -133,23 +103,33 @@ class BLOCK:public ELIST_LINK, public PDBLK
     C_BLOB_LIST *reject_blobs() {
       return &rej_blobs;
     }
-    //      void                                                    bounding_box(                                           //get box
-    //              ICOORD&                                 bottom_left,                                            //bottom left
-    //              ICOORD&                                 top_right) const                                        //topright
-    //      {
-    //              bottom_left=box.botleft();
-    //              top_right=box.topright();
-    //      }
-    //      const TBOX&                                      bounding_box() const                            //get real box
-    //      {
-    //              return box;
-    //      }
+  FCOORD re_rotation() const {
+    return re_rotation_;         // How to transform coords back to image.
+  }
+  void set_re_rotation(const FCOORD& rotation) {
+    re_rotation_ = rotation;
+  }
+  FCOORD classify_rotation() const {
+    return classify_rotation_;   // Apply this before classifying.
+  }
+  void set_classify_rotation(const FCOORD& rotation) {
+    classify_rotation_ = rotation;
+  }
+  FCOORD skew() const {
+    return skew_;                // Direction of true horizontal.
+  }
+  void set_skew(const FCOORD& skew) {
+    skew_ = skew;
+  }
+  const ICOORD& median_size() const {
+    return median_size_;
+  }
+  void set_median_size(int x, int y) {
+    median_size_.set_x(x);
+    median_size_.set_y(y);
+  }
 
-    //      BOOL8                                                   contains(                                                       //is pt inside block
-    //              ICOORD                                  pt);
-
-    //      void                                                    move(                                                                   // reposition block
-    //         const ICOORD                 vec);                                                                   // by vector
+  void rotate(const FCOORD& rotation);
 
     void sort_rows();  //decreasing y order
 
@@ -157,21 +137,9 @@ class BLOCK:public ELIST_LINK, public PDBLK
 
     void check_pitch();  //check proportional
 
-    void compress(                    //shrink white space
-                  const ICOORD vec);  //and move by vector
+  void compress(const ICOORD vec);  // shrink white spaceand move by vector
 
-    void print(              //print summary/table
-               FILE *fp,     //file to print on
-               BOOL8 dump);  //dump whole table
-
-    //      void                                                    plot(                                                                   //draw histogram
-    //              WINDOW                                  window,                                                         //window to draw in
-    //              inT32                                           serial,                                                         //serial number
-    //              COLOUR                                  colour);                                                                //colour to draw in
-
-    //      void                                                    show(                                                                   //show image
-    //              IMAGE                                           *image,                                                         //image to show
-    //              WINDOW                                  window);                                                                //window to show in
+  void print(FILE *fp, BOOL8 dump);  // dump whole table
 
     void prep_serialise() {  //set ptrs to counts
       filename.prep_serialise ();
@@ -182,33 +150,27 @@ class BLOCK:public ELIST_LINK, public PDBLK
       rightside.prep_serialise ();
     }
 
-    void dump(  //write external bits
-              FILE *f) {
+  void dump(FILE *f) {
       filename.dump (f);
       rows.dump (f);
       c_blobs.dump (f);
       rej_blobs.dump (f);
       leftside.dump (f);
       rightside.dump (f);
-      if (hand_block != NULL)
-        hand_block->serialise (f);
     }
 
-    void de_dump(  //read external bits
-                 FILE *f) {
+  void de_dump(FILE *f) {  // read external bits
       filename.de_dump (f);
       rows.de_dump (f);
       c_blobs.de_dump (f);
       rej_blobs.de_dump (f);
       leftside.de_dump (f);
       rightside.de_dump (f);
-      if (hand_block != NULL)
-        hand_block = TEXT_REGION::de_serialise (f);
     }
 
-                                 //assignment
-    make_serialise (BLOCK) BLOCK & operator= (
-      const BLOCK & source);     //from this
+  make_serialise(BLOCK)
+
+  BLOCK& operator=(const BLOCK & source);
 
   private:
     BOOL8 proportional;          //proportional
@@ -219,17 +181,15 @@ class BLOCK:public ELIST_LINK, public PDBLK
     inT32 xheight;               //height of chars
     float cell_over_xheight_;    // Ratio of cell height to xheight.
     STRING filename;             //name of block
-    //      TEXT_REGION*                            hand_block;                                                     //if it exists
-    //      POLY_BLOCK*                                     hand_poly;                                                      //wierd as well
     ROW_LIST rows;               //rows in block
     C_BLOB_LIST c_blobs;         //before textord
     C_BLOB_LIST rej_blobs;       //duff stuff
-    //      ICOORDELT_LIST                          leftside;                                                       //left side vertices
-    //      ICOORDELT_LIST                          rightside;                                                      //right side vertices
-    //      TBOX                                                     box;                                                                    //bounding box
+  FCOORD re_rotation_;         // How to transform coords back to image.
+  FCOORD classify_rotation_;   // Apply this before classifying.
+  FCOORD skew_;                // Direction of true horizontal.
+  ICOORD median_size_;         // Median size of blobs.
 };
 
-int decreasing_top_order(  //
-                         const void *row1,
-                         const void *row2);
+int decreasing_top_order(const void *row1, const void *row2);
+
 #endif

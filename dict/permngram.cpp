@@ -19,8 +19,6 @@
 
 #include "const.h"
 #include "permngram.h"
-#include "permnum.h"
-#include "debug.h"
 #include "permute.h"
 #include "dawg.h"
 #include "tordvars.h"
@@ -60,7 +58,7 @@ class HypothesisPrefix {
   HypothesisPrefix(const HypothesisPrefix& prefix,
                    A_CHOICE* choice,
                    bool end_of_word,
-                   EDGE_ARRAY dawg,
+                   const tesseract::Dawg *dawg,
                    tesseract::Dict* dict);
 
   double rating() const {return rating_;}
@@ -121,7 +119,7 @@ static double get_classifier_score_ngram_score_ratio(const char* choice);
 namespace tesseract {
 A_CHOICE *Dict::ngram_permute_and_select(CHOICES_LIST char_choices,
                                          float rating_limit,
-                                         EDGE_ARRAY dawg) {
+                                         const Dawg *dawg) {
   if (array_count (char_choices) <= MAX_WERD_LENGTH) {
     CHOICES choices;
     int char_index_max = array_count(char_choices);
@@ -201,7 +199,7 @@ HypothesisPrefix::HypothesisPrefix() {
 HypothesisPrefix::HypothesisPrefix(const HypothesisPrefix& prefix,
                                    A_CHOICE* choice,
                                    bool end_of_word,
-                                   EDGE_ARRAY dawg,
+                                   const tesseract::Dawg *dawg,
                                    tesseract::Dict* dict) {
   char* word_ptr = word_;
   const char* prefix_word_ptr = prefix.word_;
@@ -248,17 +246,26 @@ HypothesisPrefix::HypothesisPrefix(const HypothesisPrefix& prefix,
          class_string_choice[char_subindex] != '\0';
          ++char_subindex) {
 
+      // TODO(daria): update this code (and the rest of ngram permuter code
+      // to deal with unichar ids, make use of the new parallel dawg search
+      // and use WERD_CHOICE, BLOB_CHOICE_LIST_VECTOR instead of the deprecated
+      // A_CHOICE.
+      tprintf("Error: ngram permuter functionality is not available\n");
+      exit(1);
+
       // Verify each byte of the appended character. Note that word_ptr points
       // to the first byte so (word_ptr - (word_ + 1)) is the index of the first
       // new byte in the string that starts at (word_ + 1).
+      /*
       int current_byte_index = word_ptr - (word_ + 1) + char_subindex;
       if (!(dict->*dict->letter_is_okay_)(
-         dawg, &dawg_node_, current_byte_index, '\0', word_ + 1,
+         dawg, &dawg_node_, current_byte_index, word_ + 1,
          end_of_word && class_string_choice[char_subindex + 1] == '\0')) {
         dawg_node_ = NO_EDGE;
         is_dawg_prefix_ = false;
         break;
       }
+      */
     }
   }
 

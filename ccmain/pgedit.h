@@ -29,8 +29,6 @@
 #include          "notdll.h"
 #include          "tesseractclass.h"
 
-#ifndef GRAPHICS_DISABLED
-
 class ScrollView;
 class SVMenuNode;
 struct SVEvent;
@@ -170,6 +168,4 @@ BOOL8 word_toggle_seg(            //toggle seg flag
                      );
 void do_check_mem(  //do it
                   inT32 level);
-
-#endif//GRAPHICS_DISABLED
 #endif

@@ -107,10 +107,10 @@ struct FontInfo {
   char*         name;
   uinT32        properties;
   bool is_italic() { return properties & 1; }
-  bool is_bold() { return properties & 2; }
-  bool is_fixed_pitch() { return properties & 4; }
-  bool is_serif() { return properties & 8; }
-  bool is_fraktur() { return properties & 16; }
+  bool is_bold() { return (properties & 2) != 0; }
+  bool is_fixed_pitch() { return (properties & 4) != 0; }
+  bool is_serif() { return (properties & 8) != 0; }
+  bool is_fraktur() { return (properties & 16) != 0; }
 };
 
 // Every class (character) owns a FontSet that represents all the fonts that can
@@ -169,34 +169,27 @@ typedef INT_FEATURE_STRUCT *INT_FEATURE;
 
 typedef INT_FEATURE_STRUCT INT_FEATURE_ARRAY[MAX_NUM_INT_FEATURES];
 
+enum IntmatcherDebugAction {
+  IDA_ADAPTIVE,
+  IDA_STATIC,
+  IDA_BOTH
+};
+
 /**----------------------------------------------------------------------------
             Macros
 ----------------------------------------------------------------------------**/
-/* PROTO_SET access macros*/
-#define ProtoPrunerFor(S) (S->ProtoPruner)
 
-/* INT_CLASS access macros*/
-#define NumIntProtosIn(C) ((C)->NumProtos)
-#define NumProtoSetsIn(C) ((C)->NumProtoSets)
-#define MaxNumIntProtosIn(C)  (NumProtoSetsIn (C) * PROTOS_PER_PROTO_SET)
-#define NumIntConfigsIn(C)  ((C)->NumConfigs)
-#define ProtoSetIn(C,I)   ((C)->ProtoSets[I])
+#define MaxNumIntProtosIn(C)  (C->NumProtoSets * PROTOS_PER_PROTO_SET)
 #define SetForProto(P)    (P / PROTOS_PER_PROTO_SET)
 #define IndexForProto(P)  (P % PROTOS_PER_PROTO_SET)
-//#define IllegalProto(C,P)     (P >= MaxNumIntProtosIn (C))
-#define ProtoForProtoId(C,P)	(&((ProtoSetIn (C, SetForProto (P)))->	\
+#define ProtoForProtoId(C,P)	(&((C->ProtoSets[SetForProto (P)])->	\
 					Protos [IndexForProto (P)]))
-#define LengthForProtoId(C,P) ((C)->ProtoLengths[P])
-#define LengthForConfigId(C,c)  ((C)->ConfigLengths[c])
 #define PPrunerWordIndexFor(I)	(((I) % PROTOS_PER_PROTO_SET) /		\
 				PROTOS_PER_PP_WERD)
 #define PPrunerBitIndexFor(I) ((I) % PROTOS_PER_PP_WERD)
 #define PPrunerMaskFor(I) (1 << PPrunerBitIndexFor (I))
 
-/* INT_TEMPLATE access macros*/
-#define NumClassesIn(T)   ((T)->NumClasses)
-#define NumClassPrunersIn(T)  ((T)->NumClassPruners)
-#define MaxNumClassesIn(T)    (NumClassPrunersIn (T) * CLASSES_PER_CP)
+#define MaxNumClassesIn(T)    (T->NumClassPruners * CLASSES_PER_CP)
 #define LegalClassId(c)   ((c) >= 0 && (c) <= MAX_CLASS_ID)
 #define UnusedClassIdIn(T,c)  ((T)->Class[c] == NULL)
 #define ClassForClassId(T,c) ((T)->Class[c])
@@ -252,8 +245,6 @@ void DisplayIntFeature(INT_FEATURE Feature, FLOAT32 Evidence);
 
 void DisplayIntProto(INT_CLASS Class, PROTO_ID ProtoId, FLOAT32 Evidence);
 
-void InitIntProtoVars();
-
 INT_CLASS NewIntClass(int MaxNumProtos, int MaxNumConfigs);
 
 INT_TEMPLATES NewIntTemplates();
@@ -262,96 +253,12 @@ void free_int_templates(INT_TEMPLATES templates);
 
 void ShowMatchDisplay();
 
-/*
-#if defined(__STDC__) || defined(__cplusplus)
-# define        _ARGS(s) s
-#else
-# define        _ARGS(s) ()
-#endif*/
+/*----------------------------------------------------------------------------*/
 
-/* intproto.c
-int AddIntClass
-    _ARGS((INT_TEMPLATES Templates,
-  CLASS_ID ClassId,
-  INT_CLASS Class));
+void InitIntMatchWindowIfReqd();
 
-int AddIntConfig
-    _ARGS((INT_CLASS Class));
+void InitProtoDisplayWindowIfReqd();
 
-int AddIntProto
-    _ARGS((INT_CLASS Class));
+void InitFeatureDisplayWindowIfReqd();
 
-void AddProtoToClassPruner
-    _ARGS((PROTO Proto,
-  CLASS_ID ClassId,
-  INT_TEMPLATES Templates));
-
-void AddProtoToProtoPruner
-    _ARGS((PROTO Proto,
-  int ProtoId,
-  INT_CLASS Class));
-
-int BucketFor
-    _ARGS((FLOAT32 Param,
-  FLOAT32 Offset,
-  int NumBuckets));
-
-int CircBucketFor
-    _ARGS((FLOAT32 Param,
-  FLOAT32 Offset,
-  int NumBuckets));
-
-void UpdateMatchDisplay
-    _ARGS((void));
-
-void ConvertConfig
-    _ARGS((BIT_VECTOR Config,
-  int ConfigId,
-  INT_CLASS Class));
-
-void ConvertProto
-    _ARGS((PROTO Proto,
-  int ProtoId,
-  INT_CLASS Class));
-
-INT_TEMPLATES CreateIntTemplates
-    _ARGS((CLASSES FloatProtos));
-
-void DisplayIntFeature
-    _ARGS((INT_FEATURE Feature,
-  FLOAT32 Evidence));
-
-void DisplayIntProto
-    _ARGS((INT_CLASS Class,
-  PROTO_ID ProtoId,
-  FLOAT32 Evidence));
-
-void InitIntProtoVars
-    _ARGS((void));
-
-INT_CLASS NewIntClass
-    _ARGS((int MaxNumProtos,
-  int MaxNumConfigs));
-
-INT_TEMPLATES NewIntTemplates
-    _ARGS((void));
-
-INT_TEMPLATES ReadIntTemplates
-    _ARGS((FILE *File));
-
-void ShowMatchDisplay
-    _ARGS((void));
-
-void WriteIntTemplates
-    _ARGS((FILE *File,
-  INT_TEMPLATES Templates));
-
-CLASS_ID GetClassToDebug
-    _ARGS((char *Prompt));
-
-C_COL GetMatchColorFor
-    _ARGS((FLOAT32 Evidence));
-
-#undef _ARGS
-*/
 #endif

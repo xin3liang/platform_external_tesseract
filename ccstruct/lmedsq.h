@@ -22,9 +22,7 @@
 
 #include          "points.h"
 #include          "varable.h"
-#ifndef GRAPHICS_DISABLED
 #include          "scrollview.h"
-#endif
 #include          "notdll.h"
 
 class LMS
@@ -47,12 +45,9 @@ class LMS
                        double &a,                //x squared
                        float &b,                 //x
                        float &c);                //constant
-
-#ifndef GRAPHICS_DISABLED
     void plot(                 //plot fit
               ScrollView* win,      //window
               ScrollView::Color colour);  //colour to draw in
-#endif
     float error() {  //get error
       return fitted ? line_error : -1;
     }

@@ -40,8 +40,8 @@
 #include "tesseractclass.h"
 
 #include          "blread.h"
-#include          "pageseg.h"
 
+#ifndef GRAPHICS_DISABLED
 #define ASC_HEIGHT     (2 * bln_baseline_offset + bln_x_height)
 #define X_HEIGHT       (bln_baseline_offset + bln_x_height)
 #define BL_HEIGHT     bln_baseline_offset
@@ -91,9 +91,7 @@ enum CMD_EVENTS
  **********************************************************************/
 
 ScrollView* image_win;
-#ifndef GRAPHICS_DISABLED
 VariablesEditor* ve;
-#endif
 bool stillRunning = false;
 
 #ifdef __UNIX__
@@ -377,7 +375,7 @@ SVMenuNode *Tesseract::build_menu_new() {
   parent_menu = root_menu_item->AddChild("DISPLAY");
 
   parent_menu->AddChild("Bounding Boxes",
-      BOUNDING_BOX_CMD_EVENT, TRUE);
+      BOUNDING_BOX_CMD_EVENT, FALSE);
   parent_menu->AddChild("Correct Text",
       CORRECT_TEXT_CMD_EVENT, FALSE);
   parent_menu->AddChild("Polygonal Approx",
@@ -385,7 +383,7 @@ SVMenuNode *Tesseract::build_menu_new() {
   parent_menu->AddChild("Baseline Normalised",
       BL_NORM_CMD_EVENT, FALSE);
   parent_menu->AddChild("Edge Steps",
-      BITMAP_CMD_EVENT, FALSE);
+      BITMAP_CMD_EVENT, TRUE);
 
   parent_menu = root_menu_item->AddChild("OTHER");
 
@@ -667,9 +665,7 @@ void do_write_file(           // serialise
 void PGEventHandler::Notify(const SVEvent* event) {
   char myval = '0';
   if (event->type == SVET_POPUP) {
-#ifndef GRAPHICS_DISABLED
 ve->Notify(event);
-#endif
   } // These are handled by Var. Editor
   else if (event->type == SVET_EXIT) { stillRunning = false; }
   else if (event->type == SVET_MENU) {
@@ -706,8 +702,8 @@ void Tesseract::pgeditor_main(BLOCK_LIST *blocks) {
   stillRunning = true;
 
   build_image_window(block_list_bounding_box(source_block_list));
-  do_re_display(&word_display);
-  word_display_mode.turn_on_bit(DF_BOX);
+  word_display_mode.turn_on_bit(DF_EDGE_STEP);
+  do_re_display(&word_set_display);
 #ifndef GRAPHICS_DISABLED
   ve = new VariablesEditor(this, image_win);
 #endif
@@ -722,6 +718,7 @@ void Tesseract::pgeditor_main(BLOCK_LIST *blocks) {
   image_win->SetVisible(true);
 
   image_win->AwaitEvent(SVET_DESTROY);
+  image_win->AddEventHandler(NULL);
 }
 }  // namespace tesseract
 
@@ -757,9 +754,9 @@ void Tesseract::pgeditor_read_file(                   // of serialised file
   lastdot = strrchr (name.string (), '.');
   if (lastdot != NULL)
     name[lastdot-name.string()] = '\0';
-  if (!read_pd_file (name, page_image.get_xsize (), page_image.get_ysize (),
+  if (!read_unlv_file(name, page_image.get_xsize(), page_image.get_ysize(),
                      blocks))
-    segment_page(blocks);
+    FullPageBlock(page_image.get_xsize(), page_image.get_ysize(), blocks);
   find_components(blocks, &land_blocks, &port_blocks, &page_box);
   textord_page(page_box.topright(), blocks, &land_blocks, &port_blocks, this);
 }
@@ -1766,8 +1763,10 @@ BOOL8 word_dumper(              // dump word
                   WERD *word     // word to be processed
                  ) {
 
+  if (block != NULL) {
   tprintf("\nBlock data...\n");
   block->print(NULL, FALSE);
+  }
   tprintf("\nRow data...\n");
   row->print(NULL);
   tprintf("\nWord data...\n");
@@ -1816,6 +1815,7 @@ BOOL8 word_toggle_seg(           // toggle seg flag
   return TRUE;
 }
 
+#endif  // GRAPHICS_DISABLED
 
 /* DEBUG ONLY */
 

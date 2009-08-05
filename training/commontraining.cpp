@@ -53,10 +53,7 @@ const char* test_ch = "";
 UNICHARSET unicharset_training;
 
 /*---------------------------------------------------------------------------*/
-void ParseArguments(
-int	argc,
-char	**argv)
-
+void ParseArguments(int argc, char **argv)
 /*
 **	Parameters:
 **		argc	number of command line arguments to parse
@@ -313,8 +310,10 @@ void WriteTrainingSamples (
 		if (File == NULL)
 		{
 			File = Efopen (Filename, "w");
-			WriteOldParamDesc
-				(File, DefinitionOf (ShortNameToFeatureType (program_feature_type)));
+      WriteOldParamDesc(
+          File,
+          FeatureDefs.FeatureDesc[ShortNameToFeatureType(
+              program_feature_type)]);
 		}
 		else
 		{
@@ -431,7 +430,8 @@ CLUSTERER *SetUpForClustering(
 	FEATURE_DESC FeatureDesc = NULL;
 //	PARAM_DESC* ParamDesc;
 
-	FeatureDesc = DefinitionOf(ShortNameToFeatureType(program_feature_type));
+  FeatureDesc =
+    FeatureDefs.FeatureDesc[ShortNameToFeatureType(program_feature_type)];
 	N = FeatureDesc->NumParams;
 //	ParamDesc = ConvertToPARAMDESC(FeatureDesc->ParamDesc, N);
 	Clusterer = MakeClusterer(N,FeatureDesc->ParamDesc);
@@ -705,30 +705,30 @@ void SetUpForFloat2Int(
 		MergeClass = (MERGE_CLASS) first_node (LabeledClassList);
 		Class = &TrainingData[unicharset_training.unichar_to_id(
                                           MergeClass->Label)];
-		NumProtos = NumProtosIn(MergeClass->Class);
-		NumConfigs = NumConfigsIn(MergeClass->Class);
+    NumProtos = MergeClass->Class->NumProtos;
+    NumConfigs = MergeClass->Class->NumConfigs;
                 font_set.move(&MergeClass->Class->font_set);
-		NumProtosIn(Class) = NumProtos;
+    Class->NumProtos = NumProtos;
 		Class->MaxNumProtos = NumProtos;
 		Class->Prototypes = (PROTO) Emalloc (sizeof(PROTO_STRUCT) * NumProtos);
 		for(i=0; i < NumProtos; i++)
 		{
 			NewProto = ProtoIn(Class, i);
 			OldProto = ProtoIn(MergeClass->Class, i);
-			Values[0] = ProtoX(OldProto);
-			Values[1] = ProtoY(OldProto);
-			Values[2] = ProtoAngle(OldProto);
+      Values[0] = OldProto->X;
+      Values[1] = OldProto->Y;
+      Values[2] = OldProto->Angle;
 			Normalize(Values);
-			ProtoX(NewProto) = ProtoX(OldProto);
-			ProtoY(NewProto) = ProtoY(OldProto);
-			ProtoLength(NewProto) = ProtoLength(OldProto);
-			ProtoAngle(NewProto) = ProtoAngle(OldProto);
-			CoefficientA(NewProto) = Values[0];
-			CoefficientB(NewProto) = Values[1];
-			CoefficientC(NewProto) = Values[2];
+      NewProto->X = OldProto->X;
+      NewProto->Y = OldProto->Y;
+      NewProto->Length = OldProto->Length;
+      NewProto->Angle = OldProto->Angle;
+      NewProto->A = Values[0];
+      NewProto->B = Values[1];
+      NewProto->C = Values[2];
 		}
 
-		NumConfigsIn(Class) = NumConfigs;
+    Class->NumConfigs = NumConfigs;
 		Class->MaxNumConfigs = NumConfigs;
                 Class->font_set.move(&font_set);
 		Class->Configurations = (BIT_VECTOR*) Emalloc (sizeof(BIT_VECTOR) * NumConfigs);
@@ -736,10 +736,10 @@ void SetUpForFloat2Int(
 		for(i=0; i < NumConfigs; i++)
 		{
 			NewConfig = NewBitVector(NumProtos);
-			OldConfig = ConfigIn(MergeClass->Class, i);
+      OldConfig = MergeClass->Class->Configurations[i];
 			for(j=0; j < NumWords; j++)
 				NewConfig[j] = OldConfig[j];
-			ConfigIn(Class, i) = NewConfig;
+      Class->Configurations[i] = NewConfig;
 		}
 	}
 } // SetUpForFloat2Int

@@ -21,11 +21,11 @@
 #include "clusttool.h"           //If remove you get cought in a loop somewhere
 #include "emalloc.h"
 #include "mfoutline.h"
-#include "debug.h"
 #include "hideedge.h"
 #include "blobs.h"
 #include "const.h"
 #include "mfx.h"
+#include "varable.h"
 
 #include <math.h>
 #include <stdio.h>
@@ -33,73 +33,27 @@
 #define MIN_INERTIA (0.00001)
 
 /**----------------------------------------------------------------------------
-          Private Function Prototypes
-----------------------------------------------------------------------------**/
-/*
-#if defined(__STDC__) || defined(__cplusplus)
-# define _ARGS(s) s
-#else
-# define _ARGS(s) ()
-#endif*/
-
-/* /users/danj/wiseowl/src/danj/microfeatures/mfoutline.c
-void ChangeDirection
-  _ARGS((MFOUTLINE Start,
-  MFOUTLINE End,
-  DIRECTION Direction));
-
-void CharNormalizeOutline
-  _ARGS((MFOUTLINE Outline,
-  OUTLINE_STATS *OutlineStats));
-
-void ComputeDirection
-  _ARGS((MFEDGEPT *Start,
-  MFEDGEPT *Finish,
-  FLOAT32 MinSlope,
-  FLOAT32 MaxSlope));
-
-void FinishOutlineStats
-  _ARGS((OUTLINE_STATS *OutlineStats));
-
-void InitOutlineStats
-  _ARGS((OUTLINE_STATS *OutlineStats));
-
-MFOUTLINE NextDirectionChange
-  _ARGS((MFOUTLINE EdgePoint));
-
-void UpdateOutlineStats
-  _ARGS((OUTLINE_STATS *OutlineStats,
-  FLOAT32 x1,
-  FLOAT32 y1,
-  FLOAT32 x2,
-  FLOAT32 y2));
-
-#undef _ARGS
-*/
-/**----------------------------------------------------------------------------
         Global Data Definitions and Declarations
 ----------------------------------------------------------------------------**/
 /* center of current blob being processed - used when "unexpanding"
   expanded blobs */
 static TPOINT BlobCenter;
 
+/**----------------------------------------------------------------------------
+             Variables
+----------------------------------------------------------------------------**/
+
 /* control knobs used to control normalization of outlines */
-make_int_var (NormMethod, character, MakeNormMethod,
-15, 10, SetNormMethod, "Normalization Method   ...")
+INT_VAR(classify_norm_method, character, "Normalization Method   ...");
 /* PREV DEFAULT "baseline" */
-make_float_var (CharNormRange, 0.2, MakeCharNormRange,
-15, 11, SetCharNormRange, "Character Normalization Range ...")
-make_float_var (MinNormScaleX, 0.0, MakeMinNormScaleX,
-15, 12, SetMinNormScaleX, "Min char x-norm scale ...")
+double_VAR(classify_char_norm_range, 0.2, "Character Normalization Range ...");
+double_VAR(classify_min_norm_scale_x, 0.0, "Min char x-norm scale ...");
 /* PREV DEFAULT 0.1 */
-make_float_var (MaxNormScaleX, 0.325, MakeMaxNormScaleX,
-15, 13, SetMaxNormScaleX, "Max char x-norm scale ...")
+double_VAR(classify_max_norm_scale_x, 0.325, "Max char x-norm scale ...");
 /* PREV DEFAULT 0.3 */
-make_float_var (MinNormScaleY, 0.0, MakeMinNormScaleY,
-15, 14, SetMinNormScaleY, "Min char y-norm scale ...")
+double_VAR(classify_min_norm_scale_y, 0.0, "Min char y-norm scale ...");
 /* PREV DEFAULT 0.1 */
-make_float_var (MaxNormScaleY, 0.325, MakeMaxNormScaleY,
-15, 15, SetMaxNormScaleY, "Max char y-norm scale ...")
+double_VAR(classify_max_norm_scale_y, 0.325, "Max char y-norm scale ...");
 /* PREV DEFAULT 0.3 */
 /**----------------------------------------------------------------------------
               Public Code
@@ -197,7 +151,7 @@ MFOUTLINE ConvertOutline(TESSLINE *Outline) {
     return (MFOutline);
 
                                  /* have outlines been prenormalized */
-  if (is_baseline_normalized ()) {
+  if (classify_baseline_normalized) {
     StartPoint = Outline->loop;
     EdgePoint = StartPoint;
     do {
@@ -208,9 +162,9 @@ MFOUTLINE ConvertOutline(TESSLINE *Outline) {
       EdgePoint->pos.y != NextPoint->pos.y) {
         NewPoint = NewEdgePoint ();
         ClearMark(NewPoint);
-        IsHidden (NewPoint) = is_hidden_edge (EdgePoint) ? TRUE : FALSE;
-        XPositionOf (NewPoint) = EdgePoint->pos.x;
-        YPositionOf (NewPoint) = EdgePoint->pos.y;
+        NewPoint->Hidden = is_hidden_edge (EdgePoint) ? TRUE : FALSE;
+        NewPoint->Point.x = EdgePoint->pos.x;
+        NewPoint->Point.y = EdgePoint->pos.y;
         MFOutline = push (MFOutline, NewPoint);
       }
       EdgePoint = NextPoint;
@@ -219,24 +173,25 @@ MFOUTLINE ConvertOutline(TESSLINE *Outline) {
   }
                                  /* use compressed version of outline */
   else if (Outline->loop == NULL) {
-    Xof (Position) = Xof (StartPosition) = Outline->start.x;
-    Yof (Position) = Yof (StartPosition) = Outline->start.y;
+    Position.x = StartPosition.x = Outline->start.x;
+    Position.y = StartPosition.y = Outline->start.y;
     Vector = Outline->compactloop;
     do {
       if (Vector->dx != 0 || Vector->dy != 0) {
         NewPoint = NewEdgePoint ();
         ClearMark(NewPoint);
                                  /* all edges are visible */
-        IsHidden (NewPoint) = FALSE;
-        CopyPoint (Position, PositionOf (NewPoint));
+        NewPoint->Hidden = FALSE;
+        NewPoint->Point.x = Position.x;
+        NewPoint->Point.y = Position.y;
         MFOutline = push (MFOutline, NewPoint);
       }
-      Xof (Position) += Vector->dx;
-      Yof (Position) += Vector->dy;
+      Position.x += Vector->dx;
+      Position.y += Vector->dy;
       Vector++;
     }
-    while ((Xof (Position) != Xof (StartPosition)) ||
-      (Yof (Position) != Yof (StartPosition)));
+    while (Position.x != StartPosition.x ||
+      (Position.y != StartPosition.y));
   }
   else {                         /* use expanded version of outline */
     StartPoint = Outline->loop;
@@ -249,10 +204,10 @@ MFOUTLINE ConvertOutline(TESSLINE *Outline) {
       EdgePoint->pos.y != NextPoint->pos.y) {
         NewPoint = NewEdgePoint ();
         ClearMark(NewPoint);
-        IsHidden (NewPoint) = is_hidden_edge (EdgePoint) ? TRUE : FALSE;
-        XPositionOf (NewPoint) =
+        NewPoint->Hidden = is_hidden_edge (EdgePoint) ? TRUE : FALSE;
+        NewPoint->Point.x =
           (EdgePoint->pos.x + BlobCenter.x) / REALSCALE;
-        YPositionOf (NewPoint) =
+        NewPoint->Point.y =
           (EdgePoint->pos.y + BlobCenter.y) / REALSCALE;
         MFOutline = push (MFOutline, NewPoint);
       }
@@ -344,8 +299,8 @@ void ComputeOutlineStats(LIST Outlines, OUTLINE_STATS *OutlineStats) {
       Current = PointAt (EdgePoint);
 
       UpdateOutlineStats (OutlineStats,
-        XPositionOf (Last), YPositionOf (Last),
-        XPositionOf (Current), YPositionOf (Current));
+        Last->Point.x, Last->Point.y,
+        Current->Point.x, Current->Point.y);
 
       Last = Current;
       EdgePoint = NextPointAfter (EdgePoint);
@@ -388,14 +343,14 @@ void FilterEdgeNoise(MFOUTLINE Outline, FLOAT32 NoiseSegmentLength) {
   Last = First;
   do {
     Current = NextDirectionChange (Last);
-    Length = DistanceBetween (PositionOf (PointAt (Current)),
-      PositionOf (PointAt (Last)));
+    Length = DistanceBetween ((PointAt (Current)->Point),
+      PointAt (Last)->Point);
     if (Length >= NoiseSegmentLength) {
       if (NumFound == 0) {
         NumFound = 1;
-        DirectionOfFirst = DirectionOf (PointAt (Last));
+        DirectionOfFirst = PointAt (Last)->Direction;
       }
-      else if (DirectionOfFirst != DirectionOf (PointAt (Last)))
+      else if (DirectionOfFirst != PointAt (Last)->Direction)
         break;
     }
     Last = Current;
@@ -410,10 +365,10 @@ void FilterEdgeNoise(MFOUTLINE Outline, FLOAT32 NoiseSegmentLength) {
   First = Last;
   do {
     Current = NextDirectionChange (Last);
-    Length = DistanceBetween (PositionOf (PointAt (Current)),
-      PositionOf (PointAt (Last)));
+    Length = DistanceBetween (PointAt (Current)->Point,
+      PointAt (Last)->Point);
     if (Length < NoiseSegmentLength)
-      ChangeDirection (Last, Current, PreviousDirectionOf (PointAt (Last)));
+      ChangeDirection (Last, Current, PointAt (Last)->PreviousDirection);
 
     Last = Current;
   }
@@ -509,26 +464,6 @@ void FreeOutlines(LIST Outlines) {
 
 
 /*---------------------------------------------------------------------------*/
-void InitMFOutlineVars() {
-/*
- **	Parameters: none
- **	Globals: none
- **	Operation: This routine initializes the global control knobs for
- **		all routines in this file.
- **	Return: none
- **	Exceptions: none
- **	History: Fri Dec 14 10:50:12 1990, DSJ, Created.
- */
-  MakeNormMethod();
-  MakeCharNormRange();
-  MakeMinNormScaleX();
-  MakeMaxNormScaleX();
-  MakeMinNormScaleY();
-  MakeMaxNormScaleY();
-}                                /* InitMFOutlineVars */
-
-
-/*---------------------------------------------------------------------------*/
 void MarkDirectionChanges(MFOUTLINE Outline) {
 /*
  **	Parameters:
@@ -599,7 +534,7 @@ MFOUTLINE NextExtremity(MFOUTLINE EdgePoint) {
  **	History: 7/26/89, DSJ, Created.
  */
   EdgePoint = NextPointAfter (EdgePoint);
-  while (NotExtremity (PointAt (EdgePoint)))
+  while (!PointAt (EdgePoint)->ExtremityMark)
     EdgePoint = NextPointAfter (EdgePoint);
 
   return (EdgePoint);
@@ -646,20 +581,20 @@ void NormalizeOutline(MFOUTLINE Outline,
     do {
       Current = PointAt (EdgePoint);
 
-      YPositionOf (Current) = ScaleFactor *
-        (YPositionOf (Current) -
+      Current->Point.y = ScaleFactor *
+        (Current->Point.y -
         BaselineAt (LineStats, XPositionOf (Current)));
 
-      if (YPositionOf (Current) > NORMAL_X_HEIGHT)
-        YPositionOf (Current) = NORMAL_X_HEIGHT +
-          (YPositionOf (Current) - NORMAL_X_HEIGHT) / AscStretch;
+      if (Current->Point.y > NORMAL_X_HEIGHT)
+        Current->Point.y = NORMAL_X_HEIGHT +
+          (Current->Point.y - NORMAL_X_HEIGHT) / AscStretch;
 
-      else if (YPositionOf (Current) < NORMAL_BASELINE)
-        YPositionOf (Current) = NORMAL_BASELINE +
-            (YPositionOf (Current) - NORMAL_BASELINE) / DescStretch;
+      else if (Current->Point.y < NORMAL_BASELINE)
+        Current->Point.y = NORMAL_BASELINE +
+            (Current->Point.y - NORMAL_BASELINE) / DescStretch;
 
-      XPositionOf (Current) = ScaleFactor *
-        (XPositionOf (Current) - XOrigin);
+      Current->Point.x = ScaleFactor *
+        (Current->Point.x - XOrigin);
 
       EdgePoint = NextPointAfter (EdgePoint);
     }
@@ -680,8 +615,8 @@ void NormalizeOutlines(LIST Outlines,
  **		XScale		x-direction scale factor used by routine
  **		YScale		y-direction scale factor used by routine
  **	Globals:
- **		NormMethod	method being used for normalization
- **		CharNormRange	map radius of gyration to this value
+ **   classify_norm_method  method being used for normalization
+ **   classify_char_norm_range map radius of gyration to this value
  **	Operation: This routine normalizes every outline in Outlines
  **		according to the currently selected normalization method.
  **		It also returns the scale factors that it used to do this
@@ -696,7 +631,7 @@ void NormalizeOutlines(LIST Outlines,
   OUTLINE_STATS OutlineStats;
   FLOAT32 BaselineScale;
 
-  switch (NormMethod) {
+  switch (classify_norm_method) {
     case character:
       ComputeOutlineStats(Outlines, &OutlineStats);
 
@@ -705,14 +640,15 @@ void NormalizeOutlines(LIST Outlines,
       *XScale = *YScale = BaselineScale = ComputeScaleFactor (LineStats);
       *XScale *= OutlineStats.Ry;
       *YScale *= OutlineStats.Rx;
-      if (*XScale < MinNormScaleX)
-        *XScale = MinNormScaleX;
-      if (*YScale < MinNormScaleY)
-        *YScale = MinNormScaleY;
-      if (*XScale > MaxNormScaleX && *YScale <= MaxNormScaleY)
-        *XScale = MaxNormScaleX;
-      *XScale = CharNormRange * BaselineScale / *XScale;
-      *YScale = CharNormRange * BaselineScale / *YScale;
+      if (*XScale < classify_min_norm_scale_x)
+        *XScale = classify_min_norm_scale_x;
+      if (*YScale < classify_min_norm_scale_y)
+        *YScale = classify_min_norm_scale_y;
+      if (*XScale > classify_max_norm_scale_x &&
+          *YScale <= classify_max_norm_scale_y)
+        *XScale = classify_max_norm_scale_x;
+      *XScale = classify_char_norm_range * BaselineScale / *XScale;
+      *YScale = classify_char_norm_range * BaselineScale / *YScale;
 
       iterate(Outlines) {
         Outline = (MFOUTLINE) first_node (Outlines);
@@ -749,7 +685,6 @@ void SettupBlobConversion(TBLOB *Blob) {
  **	History: Thu May 17 11:06:17 1990, DSJ, Created.
  */
   ComputeBlobCenter(Blob, &BlobCenter);
-
 }                                /* SettupBlobConversion */
 
 
@@ -787,10 +722,10 @@ void SmearExtremities(MFOUTLINE Outline, FLOAT32 XScale, FLOAT32 YScale) {
     EdgePoint = Outline;
     do {
       Current = PointAt (EdgePoint);
-      if (IsExtremity (Current)) {
-        XPositionOf (Current) +=
+      if (Current->ExtremityMark) {
+        Current->Point.x +=
           UniformRandomNumber(MinXSmear, MaxXSmear);
-        YPositionOf (Current) +=
+        Current->Point.y +=
           UniformRandomNumber(MinYSmear, MaxYSmear);
       }
 
@@ -823,9 +758,9 @@ void ChangeDirection(MFOUTLINE Start, MFOUTLINE End, DIRECTION Direction) {
   MFOUTLINE Current;
 
   for (Current = Start; Current != End; Current = NextPointAfter (Current))
-    DirectionOf (PointAt (Current)) = Direction;
+    PointAt (Current)->Direction = Direction;
 
-  PreviousDirectionOf (PointAt (End)) = Direction;
+  PointAt (End)->PreviousDirection = Direction;
 
 }                                /* ChangeDirection */
 
@@ -859,10 +794,10 @@ void CharNormalizeOutline(MFOUTLINE Outline,
   Current = First;
   do {
     CurrentPoint = PointAt (Current);
-    XPositionOf (CurrentPoint) =
-      (XPositionOf (CurrentPoint) - XCenter) * XScale;
-    YPositionOf (CurrentPoint) =
-      (YPositionOf (CurrentPoint) - YCenter) * YScale;
+    CurrentPoint->Point.x =
+      (CurrentPoint->Point.x - XCenter) * XScale;
+    CurrentPoint->Point.y =
+      (CurrentPoint->Point.y - YCenter) * YScale;
 
     Current = NextPointAfter (Current);
   }
@@ -1029,11 +964,11 @@ MFOUTLINE NextDirectionChange(MFOUTLINE EdgePoint) {
  */
   DIRECTION InitialDirection;
 
-  InitialDirection = DirectionOf (PointAt (EdgePoint));
+  InitialDirection = PointAt (EdgePoint)->Direction;
 
   do
   EdgePoint = NextPointAfter (EdgePoint);
-  while (DirectionOf (PointAt (EdgePoint)) == InitialDirection);
+  while (PointAt (EdgePoint)->Direction == InitialDirection);
 
   return (EdgePoint);
 }                                /* NextDirectionChange */

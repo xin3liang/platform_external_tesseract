@@ -31,7 +31,6 @@
 #include <math.h>
 
 #include "vecfuncs.h"
-#include "debug.h"
 
 /*----------------------------------------------------------------------
               V a r i a b l e s
@@ -42,25 +41,22 @@ C_COL color_list[] = {
   Red, Cyan, Yellow, Blue, Green, White
 };
 
-make_toggle_var (display_all_blobs, 0, make_disp_all_blobs,
-5, 1, toggle_blobs, "Display Blobs");
+BOOL_VAR(wordrec_display_all_blobs, 0, "Display Blobs");
 
-make_toggle_var (display_all_words, 0, make_disp_all_words,
-5, 2, toggle_wdisp, "Display Words");
+BOOL_VAR(wordrec_display_all_words, 0, "Display Words");
 
-make_toggle_var (blob_pause, 0, make_blob_pause,
-5, 6, toggle_pause, "Blob pause");
+BOOL_VAR(wordrec_blob_pause, 0, "Blob pause");
 
 /*----------------------------------------------------------------------
               F u n c t i o n s
 ----------------------------------------------------------------------*/
+#ifndef GRAPHICS_DISABLED
 /**********************************************************************
  * display_blob
  *
  * Macro to display blob in a window.
  **********************************************************************/
 void display_blob(TBLOB *blob, C_COL color) {
-#ifndef GRAPHICS_DISABLED
   /* Size of drawable */
   if (blob_window == NULL) {
     blob_window = c_create_window ("Blobs", 520, 10,
@@ -71,21 +67,7 @@ void display_blob(TBLOB *blob, C_COL color) {
   }
 
   render_blob(blob_window, blob, color);
-#endif
 }
-
-
-/**********************************************************************
- * init_render_vars
- *
- * Initialize the render graphics menu items.
- **********************************************************************/
-void init_render_vars() {
-  make_disp_all_blobs();
-  make_disp_all_words();
-  make_blob_pause();
-}
-
 
 /**********************************************************************
  * render_blob
@@ -116,17 +98,13 @@ void render_edgepts(void *window, EDGEPT *edgept, C_COL color) {
   if (!edgept)
     return;
 
-#ifndef GRAPHICS_DISABLED
   c_line_color_index(window, color);
   c_move(window, x, y);
-#endif
   do {
     this_edge = this_edge->next;
     x = this_edge->pos.x;
     y = this_edge->pos.y;
-#ifndef GRAPHICS_DISABLED
     c_draw(window, x, y);
-#endif
   }
   while (edgept != this_edge);
 }
@@ -153,3 +131,5 @@ void render_outline(void *window,
   /* Add on child outlines */
   render_outline(window, outline->child, Grey);
 }
+
+#endif  // GRAPHICS_DISABLED

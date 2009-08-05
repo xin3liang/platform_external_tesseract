@@ -25,9 +25,7 @@
 #endif
 #include          <time.h>
 #include          "memry.h"
-#ifndef GRAPHICS_DISABLED
 #include          "scrollview.h"
-#endif
 //#include          "evnts.h"
 #include          "varable.h"
 #include          "callcpp.h"
@@ -42,7 +40,6 @@ INT_VAR (tess_cp_mapping0, 0, "Mappings for class pruner distance");
 INT_VAR (tess_cp_mapping1, 1, "Mappings for class pruner distance");
 INT_VAR (tess_cp_mapping2, 2, "Mappings for class pruner distance");
 INT_VAR (tess_cp_mapping3, 3, "Mappings for class pruner distance");
-INT_VAR (stopper_numbers_on, 0, "Allow numbers to be acceptable choices");
 INT_VAR (record_matcher_output, 0, "Record detailed matcher info");
 INT_VAR (il1_adaption_test, 0, "Dont adapt to i/I at beginning of word");
 double_VAR (permuter_pending_threshold, 0.0,
@@ -54,26 +51,27 @@ char blob_answer[UNICHAR_LEN + 1]; //correct char
 char *word_answer;                 //correct word
 inT32 bits_in_states;              //no of bits in states
 
-#ifndef __UNIX__
-/**********************************************************************
- * assert
- *
- * A version of assert for C on NT.
- **********************************************************************/
-
-void assert(             //recog one owrd
-            int testing  //assert fail if false
-           ) {
-  ASSERT_HOST(testing);
-}
-#endif
-
 void setup_cp_maps() {
   cp_maps[0] = tess_cp_mapping0;
   cp_maps[1] = tess_cp_mapping1;
   cp_maps[2] = tess_cp_mapping2;
   cp_maps[3] = tess_cp_mapping3;
 }
+
+void
+cprintf (                        //Trace printf
+const char *format, ...          //special message
+) {
+  va_list args;                  //variable args
+  char msg[1000];
+
+  va_start(args, format);  //variable list
+  vsprintf(msg, format, args);  //Format into msg
+  va_end(args);
+
+  tprintf ("%s", msg);
+}
+
 
 #ifndef GRAPHICS_DISABLED
 ScrollView *c_create_window(                   /*create a window */

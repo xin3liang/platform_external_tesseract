@@ -22,6 +22,7 @@
 #include          "werd.h"
 #include          "drawfx.h"
 
+#ifndef GRAPHICS_DISABLED
 #define FXDEMOWIN     "FXDemo"
 #define FXDEMOXPOS      250
 #define FXDEMOYPOS      0
@@ -44,10 +45,8 @@
 
 EXTERN STRING_VAR (fx_debugfile, DEBUG_WIN_NAME, "Name of debugfile");
 
-EXTERN FILE *fx_debug = NULL;
-
-#ifndef GRAPHICS_DISABLED
 EXTERN ScrollView* fx_win = NULL;
+EXTERN FILE *fx_debug = NULL;
 
 /**********************************************************************
  * create_fx_win
@@ -74,6 +73,7 @@ void clear_fx_win() {  //make features win
   fx_win->Line(-WERDWIDTH, bln_baseline_offset, WERDWIDTH, bln_baseline_offset);
   fx_win->Line(-WERDWIDTH, bln_x_height + bln_baseline_offset, WERDWIDTH, bln_x_height + bln_baseline_offset);
 }
+
 #endif //GRAPHICS_DISABLED
 
 /**********************************************************************

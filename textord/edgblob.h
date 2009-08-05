@@ -20,9 +20,7 @@
 #ifndef           EDGBLOB_H
 #define           EDGBLOB_H
 
-#ifndef GRAPHICS_DISABLED
 #include          "scrollview.h"
-#endif
 #include          "varable.h"
 #include          "img.h"
 #include          "ocrblock.h"
@@ -59,6 +57,10 @@ class OL_BUCKETS
     inT32 count_children(                     //recursive sum
                          C_OUTLINE *outline,  //parent outline
                          inT32 max_count);    //max output
+    inT32 outline_complexity(                 // new version of count_children
+                         C_OUTLINE *outline,  // parent outline
+                         inT32 max_count,     // max output
+                         inT16 depth);        // level of recursion
     void extract_children(                     //single level get
                           C_OUTLINE *outline,  //parent outline
                           C_OUTLINE_IT *it);   //destination iterator

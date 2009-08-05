@@ -28,6 +28,6 @@
 // which choices are contained in the dictionary.
 /*A_CHOICE *ngram_permute_and_select(CHOICES_LIST char_choices,
                                    float rating_limit,
-                                   EDGE_ARRAY dawg);*/
+                                   const Dawg *dawg);*/
 
 #endif  // PERMNGRAM_H

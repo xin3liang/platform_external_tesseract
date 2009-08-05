@@ -23,32 +23,9 @@
 /**----------------------------------------------------------------------------
               Public Code
 ----------------------------------------------------------------------------**/
-/*---------------------------------------------------------------------------*/
 namespace tesseract {
-void Wordrec::mfeature_variables() { 
-/*
- **	Parameters: none
- **	Globals: none
- **	Operation: Install global variables into the wiseowl variable system.
- **	Return: none
- **	Exceptions: none
- **	History: Fri Jan 12 13:17:07 1990, DSJ, Created.
- */
-  InitBlobClassifierVars(); 
-  InitExtractorVars(); 
-}                                /* mfeature_variables */
-
-
-/*---------------------------------------------------------------------------*/
 void Wordrec::mfeature_init() { 
-/*
- **	Parameters: none
- **	Globals: none
- **	Operation: none
- **	Return: none
- **	Exceptions: none
- **	History: Fri Jan 12 13:22:41 1990, DSJ, Created.
- */
+  SetupExtractors();
   InitAdaptiveClassifier(); 
-}                                /* mfeature_init */
+}
 }

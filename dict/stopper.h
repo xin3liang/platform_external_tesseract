@@ -22,8 +22,8 @@
           Include Files and Type Defines
 ----------------------------------------------------------------------------**/
 
-#include "ratngs.h"
 #include "states.h"
+#include "unichar.h"
 #include "varable.h"
 
 typedef uinT8 BLOB_WIDTH;
@@ -71,39 +71,10 @@ extern double_VAR_H(stopper_phase2_certainty_rejection_offset, 1.0,
 
 extern INT_VAR_H(stopper_debug_level, 0, "Stopper debug level");
 
+extern BOOL_VAR_H(stopper_no_acceptable_choices, false,
+                  "Make AcceptableChoice() always return false. Useful"
+                  " when there is a need to explore all segmentations");
 
-/**----------------------------------------------------------------------------
-            Macros
-----------------------------------------------------------------------------**/
-#define DisableChoiceAccum()  (KeepWordChoices = FALSE)
-#define EnableChoiceAccum() (KeepWordChoices = TRUE)
+extern BOOL_VAR_H(save_raw_choices, false, "Save all explored raw choices");
 
-/**----------------------------------------------------------------------------
-          Public Function Prototypes
-----------------------------------------------------------------------------**/
-int AlternativeChoicesWorseThan(FLOAT32 Threshold);
-
-void FilterWordChoices();
-
-void FindClassifierErrors(FLOAT32 MinRating,
-                          FLOAT32 MaxRating,
-                          FLOAT32 RatingMargin,
-                          FLOAT32 Thresholds[]);
-
-void InitStopperVars();
-
-void InitChoiceAccum();
-
-void LogNewSegmentation(PIECES_STATE BlobWidth);
-
-void LogNewSplit(int Blob);
-
-void SettupStopperPass1();
-
-void SettupStopperPass2();
-
-/**----------------------------------------------------------------------------
-        Global Data Definitions and Declarations
-----------------------------------------------------------------------------**/
-extern BOOL8 KeepWordChoices;
 #endif

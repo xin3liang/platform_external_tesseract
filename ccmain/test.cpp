@@ -37,8 +37,7 @@ static void ocr(tesseract::TessBaseAPI *api,
 	FAILIF(api->Init(tessdata, lang), "could not initialize tesseract\n");
 	if (ratings) {
 		printf("ratings %s\n", ratings);
-		FAILIF(false == api->ReadConfigFile(ratings),
-			"could not read config file\n");
+		api->ReadConfigFile(ratings, false);
 	}
 
 	printf("set image\n");

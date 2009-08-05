@@ -21,16 +21,13 @@
 #include "stopper.h"
 #include "emalloc.h"
 #include "matchdefs.h"
-#include "debug.h"
 #include "callcpp.h"
 #include "permute.h"
 #include "context.h"
-#include "permnum.h"
 #include "danerror.h"
 #include "const.h"
 #include "freelist.h"
 #include "efio.h"
-#include "globals.h"
 #include "scanutils.h"
 #include "unichar.h"
 #include "varable.h"
@@ -38,6 +35,7 @@
 #include "image.h"
 #include "ccutil.h"
 #include "ratngs.h"
+#include "ambigs.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -49,13 +47,7 @@
 
 /* these are kludges - add appropriate .h file later */
 /* from adaptmatch.cpp */
-double_VAR(certainty_scale, 20.0, "Certainty scaling factor");
-
 #define MAX_WERD_SIZE   100
-#define MAX_AMBIG_SIZE    3
-#define DANGEROUS_AMBIGS  "DangAmbigs"
-
-typedef LIST AMBIG_TABLE;
 
 typedef struct
 {
@@ -63,12 +55,6 @@ typedef struct
   float ChunkCertainty[MAX_NUM_CHUNKS];
   UNICHAR_ID ChunkClass[MAX_NUM_CHUNKS];
 } EXPANDED_CHOICE;
-
-typedef struct
-{
-  char ambig[2 * (UNICHAR_LEN * MAX_AMBIG_SIZE) + 2];
-  char lengths[2 * (MAX_AMBIG_SIZE) + 2];
-} AMBIG_SPEC;
 
 /**----------------------------------------------------------------------------
           Macros
@@ -96,27 +82,10 @@ int FreeBadChoice(void *item1,   //VIABLE_CHOICE                 Choice,
 int UniformCertainties(const BLOB_CHOICE_LIST_VECTOR &Choices,
                        const WERD_CHOICE &BestChoice);
 
-/**----------------------------------------------------------------------------
-        Global Data Definitions and Declarations
-----------------------------------------------------------------------------**/
-/* Name of file containing potentially dangerous ambiguities */
-static const char *DangerousAmbigs = DANGEROUS_AMBIGS;
-
-/* Word for which stopper debug information should be printed to stdout */
-static char *WordToDebug = NULL;
-static char *WordToDebug_lengths = NULL;
-
-/* flag used to disable accumulation of word choices during compound word
-  permutation */
-BOOL8 KeepWordChoices = TRUE;
-
-/* additional certainty padding allowed before a word is rejected */
-static FLOAT32 RejectOffset = 0.0;
-
-/* structures to keep track of viable word choices */
-static VIABLE_CHOICE BestRawChoice = NULL;
-static LIST BestChoices = NIL;
-static PIECES_STATE CurrentSegmentation;
+/**----------------------------------------------------------------------
+                     V a r i a b l e s
+----------------------------------------------------------------------**/
+double_VAR(certainty_scale, 20.0, "Certainty scaling factor");
 
 double_VAR(stopper_nondict_certainty_base, -2.50,
            "Certainty threshold for non-dict words");
@@ -133,8 +102,7 @@ double_VAR(stopper_certainty_per_char, -0.50,
 double_VAR(stopper_allowable_character_badness, 3.0,
            "Max certaintly variation allowed in a word (in sigma)");
 
-INT_VAR(stopper_debug_level, 0,
-        "Stopper debug level");
+INT_VAR(stopper_debug_level, 0, "Stopper debug level");
 
 double_VAR(stopper_ambiguity_threshold_gain, 8.0,
            "Gain factor for ambiguity threshold");
@@ -142,25 +110,36 @@ double_VAR(stopper_ambiguity_threshold_gain, 8.0,
 double_VAR(stopper_ambiguity_threshold_offset, 1.5,
            "Certainty offset for ambiguity threshold");
 
-extern int first_pass;
+BOOL_VAR(stopper_no_acceptable_choices, false,
+         "Make AcceptableChoice() always return false. Useful"
+         " when there is a need to explore all segmentations");
+
+BOOL_VAR(save_raw_choices, false, "Save all explored raw choices");
+
 INT_VAR (tessedit_truncate_wordchoice_log, 10, "Max words to keep in list");
+
+STRING_VAR(word_to_debug, "", "Word for which stopper debug information"
+           " should be printed to stdout");
+
+STRING_VAR(word_to_debug_lengths, "", "Lengths of unichars in word_to_debug");
 
 /**----------------------------------------------------------------------------
               Public Code
 ----------------------------------------------------------------------------**/
 /*---------------------------------------------------------------------------*/
 namespace tesseract {
-int Dict::AcceptableChoice(const BLOB_CHOICE_LIST_VECTOR &Choices,
-                           const WERD_CHOICE &BestChoice,
+int Dict::AcceptableChoice(BLOB_CHOICE_LIST_VECTOR *Choices,
+                           WERD_CHOICE *BestChoice,
                            const WERD_CHOICE &RawChoice,
                            DANGERR *fixpt,
-                           ACCEPTABLE_CHOICE_CALLER caller) {
+                           ACCEPTABLE_CHOICE_CALLER caller,
+                           bool *modified_blobs) {
 /*
  **	Parameters:
  **		Choices		choices for current segmentation
  **		BestChoice	best choice for current segmentation
  **		RawChoice	best raw choice for current segmentation
- **	Globals:
+ **	Variables Used:
  **		stopper_nondict_certainty_base	certainty for a non-dict word
  **		stopper_smallword_size		size of word to be treated as non-word
  **		stopper_certainty_per_char	certainty to add for each dict char
@@ -173,56 +152,48 @@ int Dict::AcceptableChoice(const BLOB_CHOICE_LIST_VECTOR &Choices,
   float CertaintyThreshold = stopper_nondict_certainty_base;
   int WordSize;
 
+  if (stopper_no_acceptable_choices) return false;
+
   if (fixpt != NULL)
     fixpt->index = -1;
-  if (BestChoice.length() == 0)
+  if (BestChoice->length() == 0)
     return (FALSE);
-  if (caller == CHOPPER_CALLER && BestChoice.fragment_mark()) {
+  if (caller == CHOPPER_CALLER && BestChoice->fragment_mark()) {
     if (stopper_debug_level >= 1) {
       cprintf("AcceptableChoice(): a choice with fragments beats BestChoice");
     }
     return false;
   }
 
-  // TODO(daria): remove this conversion once dawg (valid_word)
-  // is switched to use unichar ids, valid_number is deprecated
-  // and DanAmbigs are fixed to work with unichar ids.
-  STRING word_str = BestChoice.unichar_string();
-  STRING word_lengths_str = BestChoice.unichar_lengths();
+  bool no_dang_ambigs =
+    NoDangerousAmbig(BestChoice, fixpt, true, Choices, modified_blobs);
 
   if (stopper_debug_level >= 1)
-    cprintf ("\nStopper:  %s (word=%c, case=%c, punct=%c)\n",
-      word_str.string(),
-      (valid_word(word_str.string()) ? 'y' : 'n'),
-      (case_ok(word_str.string(), word_lengths_str.string()) ? 'y' : 'n'),
-      ((punctuation_ok(word_str.string(),
-                       word_lengths_str.string()) != -1) ? 'y' : 'n'));
+    tprintf("\nStopper:  %s (word=%c, case=%c)\n",
+            BestChoice->debug_string(getUnicharset()).string(),
+            (valid_word(*BestChoice) ? 'y' : 'n'),
+            (Context::case_ok(*BestChoice, getUnicharset()) ? 'y' : 'n'));
 
-  if (valid_word(word_str.string()) &&
-      case_ok(word_str.string(), word_lengths_str.string()) &&
-      punctuation_ok(word_str.string(), word_lengths_str.string()) != -1) {
-    WordSize = LengthOfShortestAlphaRun(BestChoice);
+  if (valid_word(*BestChoice) &&
+      Context::case_ok(*BestChoice, getUnicharset())) {
+    WordSize = LengthOfShortestAlphaRun(*BestChoice);
     WordSize -= stopper_smallword_size;
     if (WordSize < 0)
       WordSize = 0;
     CertaintyThreshold += WordSize * stopper_certainty_per_char;
-  } else if (stopper_numbers_on &&
-             valid_number(word_str.string(), word_lengths_str.string())) {
-    CertaintyThreshold += stopper_numbers_on * stopper_certainty_per_char;
   }
 
   if (stopper_debug_level >= 1)
-    cprintf ("Stopper:  Certainty = %4.1f, Threshold = %4.1f\n",
-             BestChoice.certainty(), CertaintyThreshold);
+    tprintf("Stopper:  Certainty = %4.1f, Threshold = %4.1f\n",
+            BestChoice->certainty(), CertaintyThreshold);
 
-  if (NoDangerousAmbig(word_str.string(), word_lengths_str.string(), fixpt) &&
-      BestChoice.certainty() > CertaintyThreshold &&
-      UniformCertainties(Choices, BestChoice)) {
+  if (no_dang_ambigs &&
+      BestChoice->certainty() > CertaintyThreshold &&
+      UniformCertainties(*Choices, *BestChoice)) {
     return (TRUE);
   } else {
     return (FALSE);
   }
-
 }                                /* AcceptableChoice */
 
 
@@ -233,12 +204,12 @@ int Dict::AcceptableResult(const WERD_CHOICE &BestChoice,
  **	Parameters:
  **		BestChoice	best choice for current word
  **		RawChoice	best raw choice for current word
- **	Globals:
+ **	Variables Used:
  **		stopper_nondict_certainty_base	certainty for a non-dict word
  **		stopper_smallword_size		size of word to be treated as non-word
  **		stopper_certainty_per_char	certainty to add for each dict char
- **		BestChoices		list of all good choices found
- **		RejectOffset		allowed offset before a word is rejected
+ **		best_choices_		list of all good choices found
+ **		reject_offset_		allowed offset before a word is rejected
  **	Operation: Return FALSE if the best choice for the current word
  **		is questionable and should be tried again on the second
  **		pass or should be flagged to the user.
@@ -246,23 +217,16 @@ int Dict::AcceptableResult(const WERD_CHOICE &BestChoice,
  **	Exceptions: none
  **	History: Thu May  9 14:05:05 1991, DSJ, Created.
  */
-  float CertaintyThreshold = stopper_nondict_certainty_base - RejectOffset;
+  float CertaintyThreshold = stopper_nondict_certainty_base - reject_offset_;
   int WordSize;
 
-  // TODO(daria): remove this conversion once dawg (valid_word)
-  // is switched to use unichar ids, valid_number is deprecated
-  // and DanAmbigs are fixed to work with unichar ids.
-  STRING word_str = BestChoice.unichar_string();
-  STRING word_lengths_str = BestChoice.unichar_lengths();
-
-  if (stopper_debug_level >= 1)
-    cprintf ("\nRejecter: %s (word=%c, case=%c, punct=%c, unambig=%c)\n",
-      word_str.string(),
-      (valid_word(word_str.string()) ? 'y' : 'n'),
-      (case_ok(word_str.string(), word_lengths_str.string()) ? 'y' : 'n'),
-      ((punctuation_ok(word_str.string(),
-                       word_lengths_str.string()) != -1) ? 'y' : 'n'),
-      ((rest (BestChoices) != NIL) ? 'n' : 'y'));
+  if (stopper_debug_level >= 1) {
+    tprintf("\nRejecter: %s (word=%c, case=%c, unambig=%c)\n",
+            BestChoice.debug_string(getUnicharset()).string(),
+            (valid_word(BestChoice) ? 'y' : 'n'),
+            (Context::case_ok(BestChoice, getUnicharset()) ? 'y' : 'n'),
+            ((rest (best_choices_) != NIL) ? 'n' : 'y'));
+  }
 
   if (BestChoice.length() == 0 || CurrentWordAmbig())
     return (FALSE);
@@ -272,9 +236,8 @@ int Dict::AcceptableResult(const WERD_CHOICE &BestChoice,
     }
     return false;
   }
-  if (valid_word(word_str.string()) &&
-      case_ok(word_str.string(), word_lengths_str.string()) &&
-      (punctuation_ok(word_str.string(), word_lengths_str.string())) != -1) {
+  if (valid_word(BestChoice) &&
+      Context::case_ok(BestChoice, getUnicharset())) {
     WordSize = LengthOfShortestAlphaRun(BestChoice);
     WordSize -= stopper_smallword_size;
     if (WordSize < 0)
@@ -286,7 +249,8 @@ int Dict::AcceptableResult(const WERD_CHOICE &BestChoice,
     cprintf ("Rejecter: Certainty = %4.1f, Threshold = %4.1f   ",
       BestChoice.certainty(), CertaintyThreshold);
 
-  if (BestChoice.certainty() > CertaintyThreshold) {
+  if (BestChoice.certainty() > CertaintyThreshold &&
+      !stopper_no_acceptable_choices) {
     if (stopper_debug_level >= 1)
       cprintf("ACCEPTED\n");
     return (TRUE);
@@ -297,16 +261,15 @@ int Dict::AcceptableResult(const WERD_CHOICE &BestChoice,
     return (FALSE);
   }
 }                                /* AcceptableResult */
-}  // namespace tesseract
 
 
 /*---------------------------------------------------------------------------*/
-int AlternativeChoicesWorseThan(FLOAT32 Threshold) {
+int Dict::AlternativeChoicesWorseThan(FLOAT32 Threshold) {
 /*
  **	Parameters:
  **		Threshold	minimum adjust factor for alternative choices
- **	Globals:
- **		BestChoices	alternative choices for current word
+ **	Variables Used:
+ **		best_choices_	alternative choices for current word
  **	Operation: This routine returns TRUE if there are no alternative
  **		choices for the current word OR if all alternatives have
  **		an adjust factor worse than Threshold.
@@ -317,7 +280,7 @@ int AlternativeChoicesWorseThan(FLOAT32 Threshold) {
   LIST Alternatives;
   VIABLE_CHOICE Choice;
 
-  Alternatives = rest (BestChoices);
+  Alternatives = rest (best_choices_);
   iterate(Alternatives) {
     Choice = (VIABLE_CHOICE) first_node (Alternatives);
     if (Choice->AdjustFactor <= Threshold)
@@ -329,22 +292,21 @@ int AlternativeChoicesWorseThan(FLOAT32 Threshold) {
 }                                /* AlternativeChoicesWorseThan */
 
 
-namespace tesseract {
 /*---------------------------------------------------------------------------*/
 int Dict::CurrentBestChoiceIs(const WERD_CHOICE &WordChoice) {
 /*
  **	Parameters:
  **             Word            word that will be compared to the best choice
- **	Globals:
- **		BestChoices	set of best choices for current word
+ **	Variables Used:
+ **		best_choices_	set of best choices for current word
  **	Operation: Returns TRUE if Word is the same as the current best
  **		choice, FALSE otherwise.
  **	Return: TRUE or FALSE
  **	Exceptions: none
  **	History: Thu May 30 14:44:22 1991, DSJ, Created.
  */
-  return (BestChoices != NIL &&
-          StringSameAs(WordChoice, (VIABLE_CHOICE)first_node(BestChoices)));
+  return (best_choices_ != NIL &&
+          StringSameAs(WordChoice, (VIABLE_CHOICE)first_node(best_choices_)));
 }                                /* CurrentBestChoiceIs */
 
 
@@ -352,8 +314,8 @@ int Dict::CurrentBestChoiceIs(const WERD_CHOICE &WordChoice) {
 FLOAT32 Dict::CurrentBestChoiceAdjustFactor() {
 /*
  **	Parameters: none
- **	Globals:
- **		BestChoices	set of best choices for current word
+ **	Variables Used:
+ **		best_choices_	set of best choices for current word
  **	Operation: Return the adjustment factor for the best choice for
  **		the current word.
  **	Return: Adjust factor for current best choice.
@@ -362,10 +324,10 @@ FLOAT32 Dict::CurrentBestChoiceAdjustFactor() {
  */
   VIABLE_CHOICE BestChoice;
 
-  if (BestChoices == NIL)
+  if (best_choices_ == NIL)
     return (MAX_FLOAT32);
 
-  BestChoice = (VIABLE_CHOICE) first_node (BestChoices);
+  BestChoice = (VIABLE_CHOICE) first_node (best_choices_);
   return (BestChoice->AdjustFactor);
 
 }                                /* CurrentBestChoiceAdjustFactor */
@@ -375,15 +337,15 @@ FLOAT32 Dict::CurrentBestChoiceAdjustFactor() {
 int Dict::CurrentWordAmbig() {
 /*
  **	Parameters: none
- **	Globals:
- **		BestChoices	set of best choices for current word
+ **	Variables Used:
+ **		best_choices_	set of best choices for current word
  **	Operation: This routine returns TRUE if there are multiple good
  **		choices for the current word and FALSE otherwise.
  **	Return: TRUE or FALSE
  **	Exceptions: none
  **	History: Wed May 22 15:38:38 1991, DSJ, Created.
  */
-  return (rest (BestChoices) != NIL);
+  return (rest (best_choices_) != NIL);
 
 }                                /* CurrentWordAmbig */
 
@@ -392,9 +354,9 @@ int Dict::CurrentWordAmbig() {
 void Dict::DebugWordChoices() {
 /*
  **	Parameters: none
- **	Globals:
- **		BestRawChoice
- **		BestChoices
+ **	Variables Used:
+ **		best_raw_choice_
+ **		best_choices_
  **	Operation: Print the current choices for this word to stdout.
  **	Return: none
  **	Exceptions: none
@@ -403,19 +365,19 @@ void Dict::DebugWordChoices() {
   LIST Choices;
   int i;
   char LabelString[80];
-  VIABLE_CHOICE VChoice = (VIABLE_CHOICE)first_node(BestChoices);
+  VIABLE_CHOICE VChoice = (VIABLE_CHOICE)first_node(best_choices_);
   bool force_debug =
     fragments_debug && VChoice != NULL && VChoice->ComposedFromCharFragments;
 
   if (stopper_debug_level >= 1 || force_debug ||
-      (WordToDebug && BestChoices &&
-       StringSameAs(WordToDebug, WordToDebug_lengths,
-                    (VIABLE_CHOICE)first_node(BestChoices)))) {
-    if (BestRawChoice)
-      PrintViableChoice(stderr, "\nBest Raw Choice:   ", BestRawChoice);
+  (((STRING)word_to_debug).length() > 0 && best_choices_ &&
+       StringSameAs(word_to_debug.string(), word_to_debug_lengths.string(),
+                    (VIABLE_CHOICE)first_node(best_choices_)))) {
+    if (best_raw_choice_)
+      PrintViableChoice(stderr, "\nBest Raw Choice:   ", best_raw_choice_);
 
     i = 1;
-    Choices = BestChoices;
+    Choices = best_choices_;
     if (Choices)
       cprintf("\nBest Cooked Choices:\n");
     iterate(Choices) {
@@ -426,16 +388,32 @@ void Dict::DebugWordChoices() {
     }
   }
 }                                /* DebugWordChoices */
-}  // namespace tesseract
 
+// Print all the choices in raw_choices_ list for non 1-1 ambiguities.
+void Dict::PrintAmbigAlternatives(FILE *file, const char *label,
+                                  int label_num_unichars) {
+  iterate(raw_choices_) {
+    VIABLE_CHOICE Choice = (VIABLE_CHOICE)first_node(raw_choices_);
+    if (Choice->Length > 0 &&
+        (label_num_unichars > 1 || Choice->Length > 1)) {
+      for (int i = 0; i < Choice->Length; i++) {
+        fprintf(file, "%s",
+                getUnicharset().id_to_unichar(Choice->Blob[i].Class));
+      }
+      fflush(file);
+      fprintf(file, "\t%s\t%.4f\t%.4f\n", label,
+              Choice->Rating, Choice->Certainty);
+    }
+  }
+}
 
 /*---------------------------------------------------------------------------*/
-void FilterWordChoices() {
+void Dict::FilterWordChoices() {
 /*
  **	Parameters: none
- **	Globals:
- **		BestChoices	set of choices for current word
- **	Operation: This routine removes from BestChoices all choices which
+ **	Variables Used:
+ **		best_choices_	set of choices for current word
+ **	Operation: This routine removes from best_choices_ all choices which
  **		are not within a reasonable range of the best choice.
  **	Return: none
  **	Exceptions: none
@@ -443,20 +421,19 @@ void FilterWordChoices() {
  */
   EXPANDED_CHOICE BestChoice;
 
-  if (BestChoices == NIL || second_node (BestChoices) == NIL)
+  if (best_choices_ == NIL || second_node (best_choices_) == NIL)
     return;
 
   /* compute certainties and class for each chunk in best choice */
-  ExpandChoice ((VIABLE_CHOICE_STRUCT *) first_node (BestChoices), &BestChoice);
+  ExpandChoice((VIABLE_CHOICE_STRUCT *)first_node(best_choices_), &BestChoice);
 
-  set_rest (BestChoices, delete_d (rest (BestChoices),
+  set_rest (best_choices_, delete_d (rest (best_choices_),
     &BestChoice, FreeBadChoice));
 
 }                                /* FilterWordChoices */
 
-
 /*---------------------------------------------------------------------------*/
-void FindClassifierErrors(FLOAT32 MinRating,
+void Dict::FindClassifierErrors(FLOAT32 MinRating,
                           FLOAT32 MaxRating,
                           FLOAT32 RatingMargin,
                           FLOAT32 Thresholds[]) {
@@ -466,7 +443,6 @@ void FindClassifierErrors(FLOAT32 MinRating,
  **		MaxRating		limits how loose to make a template
  **		RatingMargin		amount of margin to put in template
  **		Thresholds[]		place to put error thresholds
- **	Globals: none
  **	Operation: This routine compares the best choice for the current
  **		word to the best raw choice to determine which characters
  **		were classified incorrectly by the classifier.  It then
@@ -492,11 +468,11 @@ void FindClassifierErrors(FLOAT32 MinRating,
   FLOAT32 AvgRating;
   int NumErrorChunks;
 
-  assert (BestChoices != NIL);
-  assert (BestRawChoice != NULL);
+  assert (best_choices_ != NIL);
+  assert (best_raw_choice_ != NULL);
 
-  ExpandChoice(BestRawChoice, &BestRaw);
-  Choice = (VIABLE_CHOICE) first_node (BestChoices);
+  ExpandChoice(best_raw_choice_, &BestRaw);
+  Choice = (VIABLE_CHOICE) first_node (best_choices_);
 
   for (i = 0, Chunk = 0; i < Choice->Length; i++, Thresholds++) {
     AvgRating = 0.0;
@@ -525,29 +501,9 @@ void FindClassifierErrors(FLOAT32 MinRating,
 
 
 /*---------------------------------------------------------------------------*/
-void InitStopperVars() {
+void Dict::InitChoiceAccum() {
 /*
  **	Parameters: none
- **	Globals: none
- **	Operation: Initializes the control variables used by the stopper.
- **	Return: none
- **	Exceptions: none
- **	History: Thu May  9 10:06:04 1991, DSJ, Created.
- */
-  VALUE dummy;
-
-  string_variable (DangerousAmbigs, "DangerousAmbigs", DANGEROUS_AMBIGS);
-  string_variable (WordToDebug, "WordToDebug", "");
-  string_variable (WordToDebug_lengths, "WordToDebug_lengths", "");
-
-}                                /* InitStopperVars */
-
-
-/*---------------------------------------------------------------------------*/
-void InitChoiceAccum() {
-/*
- **	Parameters: none
- **	Globals: none
  **	Operation: This routine initializes the data structures used to
  **		keep track the good word choices found for a word.
  **	Return: none
@@ -556,67 +512,35 @@ void InitChoiceAccum() {
  */
   BLOB_WIDTH *BlobWidth, *End;
 
-  if (BestRawChoice)
-    memfree(BestRawChoice);
+  if (best_raw_choice_)
+    memfree(best_raw_choice_);
+  best_raw_choice_ = NULL;
 
-  if (BestChoices)
-    destroy_nodes(BestChoices, memfree);
+  if (best_choices_)
+    destroy_nodes(best_choices_, memfree);
+  best_choices_ = NIL;
 
-  BestRawChoice = NULL;
-  BestChoices = NIL;
+  if (raw_choices_)
+    destroy_nodes(raw_choices_, memfree);
+  raw_choices_ = NIL;
+
   EnableChoiceAccum();
 
-  for (BlobWidth = CurrentSegmentation,
-    End = CurrentSegmentation + MAX_NUM_CHUNKS;
+  for (BlobWidth = current_segmentation_,
+    End = current_segmentation_ + MAX_NUM_CHUNKS;
     BlobWidth < End; *BlobWidth++ = 1);
 
 }                                /* InitChoiceAccum */
 
 
 /*---------------------------------------------------------------------------*/
-namespace tesseract {
-void Dict::LogNewRawChoice(const WERD_CHOICE &WordChoice,
-                           FLOAT32 AdjustFactor,
-                           const float Certainties[]) {
-/*
- **	Parameters:
- **		Choice		new raw choice for current word
- **		AdjustFactor	adjustment factor which was applied to choice
- **		Certainties	certainties for each char in new choice
- **	Globals:
- **		BestRawChoice	best raw choice so far for current word
- **	Operation: This routine compares Choice to the best raw (non-dict)
- **		choice so far and replaces it if the new choice is better.
- **	Return: none
- **	Exceptions: none
- **	History: Wed May 15 09:57:19 1991, DSJ, Created.
- */
-  if (!KeepWordChoices)
-    return;
-
-  if (!BestRawChoice)
-    BestRawChoice = NewViableChoice (WordChoice, AdjustFactor, Certainties);
-  else if (WordChoice.rating() < BestRawChoice->Rating) {
-    if (ChoiceSameAs(WordChoice, BestRawChoice))
-      FillViableChoice(WordChoice, AdjustFactor, Certainties, true,
-                       BestRawChoice);
-    else {
-      memfree(BestRawChoice);
-      BestRawChoice = NewViableChoice(WordChoice, AdjustFactor, Certainties);
-    }
-  }
-}                                /* LogNewRawChoice */
-
-}  // namespace tesseract
-
-/*---------------------------------------------------------------------------*/
-void LogNewSegmentation(PIECES_STATE BlobWidth) {
+void Dict::LogNewSegmentation(PIECES_STATE BlobWidth) {
 /*
  **	Parameters:
  **		BlobWidth[]	number of chunks in each blob in segmentation
- **	Globals:
- **		CurrentSegmentation	blob widths for current segmentation
- **	Operation: This routine updates the blob widths in CurrentSegmentation
+ **	Variables Used:
+ **		current_segmentation	blob widths for current segmentation
+ **	Operation: This routine updates the blob widths in current_segmentation
  **		to be the same as provided in BlobWidth.
  **	Return: none
  **	Exceptions: none
@@ -624,7 +548,7 @@ void LogNewSegmentation(PIECES_STATE BlobWidth) {
  */
   BLOB_WIDTH *Segmentation;
 
-  for (Segmentation = CurrentSegmentation; *BlobWidth != 0;
+  for (Segmentation = current_segmentation_; *BlobWidth != 0;
     BlobWidth++, Segmentation++)
   *Segmentation = *BlobWidth;
   *Segmentation = 0;
@@ -633,48 +557,52 @@ void LogNewSegmentation(PIECES_STATE BlobWidth) {
 
 
 /*---------------------------------------------------------------------------*/
-void LogNewSplit(int Blob) {
+void Dict::LogNewSplit(int Blob) {
 /*
  **	Parameters:
  **		Blob	index of blob that was split
- **	Globals:
- **		BestRawChoice	current best raw choice
- **		BestChoices	list of best choices found so far
+ **	Variables Used:
+ **		best_raw_choice_	current best raw choice
+ **		best_choices_	list of best choices found so far
  **	Operation: This routine adds 1 chunk to the specified blob for each
- **		choice in BestChoices and for the BestRawChoice.
+ **		choice in best_choices_ and for the best_raw_choice_.
  **	Return: none
  **	Exceptions: none
  **	History: Mon May 20 11:38:56 1991, DSJ, Created.
  */
   LIST Choices;
 
-  if (BestRawChoice) {
-    AddNewChunk(BestRawChoice, Blob);
+  if (best_raw_choice_) {
+    AddNewChunk(best_raw_choice_, Blob);
   }
 
-  Choices = BestChoices;
+  Choices = best_choices_;
   iterate(Choices) {
     AddNewChunk ((VIABLE_CHOICE) first_node (Choices), Blob);
   }
-
+  Choices = raw_choices_;
+  iterate(Choices) {
+    AddNewChunk ((VIABLE_CHOICE) first_node (Choices), Blob);
+  }
 }                                /* LogNewSplit */
 
 
 /*---------------------------------------------------------------------------*/
-namespace tesseract {
-void Dict::LogNewWordChoice(const WERD_CHOICE &WordChoice,
+void Dict::LogNewChoice(const WERD_CHOICE &WordChoice,
                             FLOAT32 AdjustFactor,
-                            const float Certainties[]) {
+                        const float Certainties[],
+                        bool raw_choice) {
 /*
  **	Parameters:
  **		Choice		new choice for current word
  **		AdjustFactor	adjustment factor which was applied to choice
  **		Certainties	certainties for each char in new choice
- **	Globals:
- **		BestChoices	best choices so far for current word
- **	Operation: This routine adds Choice to BestChoices if the
+ **		ChoicesList	list with choices seen so far
+ **     Variables Used:
+ **		best_raw_choice_	best raw choice so far for current word
+ **	Operation: This routine adds Choice to ChoicesList if the
  **		adjusted certainty for Choice is within a reasonable range
- **		of the best choice in BestChoices.  The BestChoices
+ **		of the best choice in ChoicesList.  The ChoicesList
  **		list is kept in sorted order by rating. Duplicates are
  **		removed.
  **	Return: none
@@ -682,24 +610,44 @@ void Dict::LogNewWordChoice(const WERD_CHOICE &WordChoice,
  **	History: Wed May 15 09:57:19 1991, DSJ, Created.
  */
   VIABLE_CHOICE NewChoice;
+  LIST ChoicesList;
   LIST Choices;
   FLOAT32 Threshold;
 
-  if (!KeepWordChoices)
+  if (!keep_word_choices_)
     return;
 
+  if (raw_choice) {
+    if (!best_raw_choice_)
+      best_raw_choice_ = NewViableChoice(WordChoice, AdjustFactor, Certainties);
+    else if (WordChoice.rating() < best_raw_choice_->Rating) {
+      if (ChoiceSameAs(WordChoice, best_raw_choice_))
+        FillViableChoice(WordChoice, AdjustFactor, Certainties, true,
+                         best_raw_choice_);
+      else {
+        memfree(best_raw_choice_);
+        best_raw_choice_ =
+          NewViableChoice(WordChoice, AdjustFactor, Certainties);
+      }
+    }
+    if (!save_raw_choices) return;
+    ChoicesList = raw_choices_;
+  } else {
+    ChoicesList = best_choices_;
+  }
+
   /* throw out obviously bad choices to save some work */
-  if (BestChoices != NIL) {
-    Threshold = AmbigThreshold (BestFactor (BestChoices), AdjustFactor);
+  if (ChoicesList != NIL) {
+    Threshold = AmbigThreshold (BestFactor (ChoicesList), AdjustFactor);
     if (Threshold > -stopper_ambiguity_threshold_offset)
       Threshold = -stopper_ambiguity_threshold_offset;
-    if (WordChoice.certainty() - BestCertainty (BestChoices) < Threshold)
+    if (WordChoice.certainty() - BestCertainty (ChoicesList) < Threshold)
       return;
   }
 
   /* see if a choice with the same text string has already been found */
   NewChoice = NULL;
-  Choices = BestChoices;
+  Choices = ChoicesList;
 
   iterate(Choices) {
     if (ChoiceSameAs (WordChoice, (VIABLE_CHOICE) first_node (Choices))) {
@@ -713,117 +661,217 @@ void Dict::LogNewWordChoice(const WERD_CHOICE &WordChoice,
 
   if (NewChoice) {
     FillViableChoice(WordChoice, AdjustFactor, Certainties, true, NewChoice);
-    BestChoices = delete_d(BestChoices, NewChoice, is_same_node);
+    ChoicesList = delete_d(ChoicesList, NewChoice, is_same_node);
   }
   else {
     NewChoice = NewViableChoice (WordChoice, AdjustFactor, Certainties);
   }
 
-  BestChoices = s_adjoin (BestChoices, NewChoice, CmpChoiceRatings);
+  ChoicesList = s_adjoin (ChoicesList, NewChoice, CmpChoiceRatings);
   if (stopper_debug_level >= 2)
+    raw_choice ? PrintViableChoice (stderr, "New Raw Choice:  ", NewChoice) :
     PrintViableChoice (stderr, "New Word Choice:  ", NewChoice);
-  if (count (BestChoices) > tessedit_truncate_wordchoice_log) {
+  if (count (ChoicesList) > tessedit_truncate_wordchoice_log) {
     Choices =
-      (LIST) nth_cell (BestChoices, tessedit_truncate_wordchoice_log);
+      (LIST) nth_cell (ChoicesList, tessedit_truncate_wordchoice_log);
     destroy_nodes (rest (Choices), Efree);
     set_rest(Choices, NIL);
   }
 
-}                                /* LogNewWordChoice */
+  // Update raw_choices_/best_choices_ pointer.
+  if (raw_choice) {
+    raw_choices_ = ChoicesList;
+  } else {
+    best_choices_ = ChoicesList;
+  }
+}                                /* LogNewChoice */
 
 
 /*---------------------------------------------------------------------------*/
-static AMBIG_TABLE *AmbigFor = NULL;
+int Dict::NoDangerousAmbig(WERD_CHOICE *best_choice,
+                           DANGERR *fix_pt,
+                           bool fix_replaceable,
+                           BLOB_CHOICE_LIST_VECTOR *blob_choices,
+                           bool *modified_blobs) {
+  if (stopper_debug_level > 2) {
+    tprintf("\nRunning NoDangerousAmbig() for %s\n",
+            best_choice->debug_string(getUnicharset()).string());
+  }
 
-int Dict::NoDangerousAmbig(const char *Word,
-                           const char *Word_lengths,
-                           DANGERR *fixpt) {
-/*
- **	Parameters:
- **		Word	word to check for dangerous ambiguities
- **		Word_lengths	lengths of unichars in Word
- **	Globals: none
- **	Operation: This word checks each letter in word against a list
- **		of potentially ambiguous characters.  If a match is found
- **		that letter is replaced with its ambiguity and tested in
- **		the dictionary.  If the ambiguous word is found in the
- **		dictionary, FALSE is returned.  Otherwise, the search
- **		continues for other ambiguities.  If no ambiguities that
- **		match in the dictionary are found, TRUE is returned.
- **	Return: TRUE if Word contains no dangerous ambiguities.
- **	Exceptions: none
- **	History: Mon May  6 16:28:56 1991, DSJ, Created.
- */
-
-  char NewWord[MAX_WERD_SIZE * UNICHAR_LEN + 1];
-  char *NextNewChar;
-  int bad_index = 0;
-
-  if (!AmbigFor)
-    AmbigFor = FillAmbigTable ();
-
-  NextNewChar = NewWord;
-  while (*Word) {
-    if (AmbigsFound (NewWord, NextNewChar,
-                     Word + *Word_lengths, Word_lengths + 1,
-                     AmbigFor[getUnicharset().unichar_to_id(
-                         Word, *Word_lengths)],
-                     fixpt)) {
-      if (fixpt != NULL)
-        fixpt->index = bad_index;
-      return (FALSE);
+  // Construct BLOB_CHOICE_LIST_VECTOR with ambiguities
+  // for each unichar id in BestChoice.
+  BLOB_CHOICE_LIST_VECTOR ambig_blob_choices;
+  int i;
+  bool modified_best_choice = false;
+  bool ambigs_found = false;
+  // For each position in best_choice:
+  // -- choose AMBIG_SPEC_LIST that corresponds to unichar_id at best_choice[i]
+  // -- initialize wrong_ngram with a single unichar_id at best_choice[i]
+  // -- look for ambiguities corresponding to wrong_ngram in the list while
+  //    adding the following unichar_ids from best_choice to wrong_ngram
+  //
+  // Repeat the above procedure twice: first time look through
+  // ambigs to be replaced and replace all the ambiguities found;
+  // second time look through dangerous ambiguities and construct
+  // ambig_blob_choices with fake a blob choice for each ambiguity
+  // and pass them to dawg_permute_and_select() to search for
+  // ambiguous words in the dictionaries.
+  //
+  // Note that during the execution of the for loop (on the first pass)
+  // if replacements are made the length of best_choice might change.
+  for (int pass = 0; pass < 2; ++pass) {
+    bool replace = (pass == 0);
+    const UnicharAmbigsVector &table = replace ?
+      getUnicharAmbigs().replace_ambigs() : getUnicharAmbigs().dang_ambigs();
+    if (!replace) {
+      // Initialize ambig_blob_choices with lists containing a single
+      // unichar id for the correspoding position in best_choice.
+      // best_choice consisting from only the original letters will
+      // have a rating of 0.0.
+      for (i = 0; i < best_choice->length(); ++i) {
+        BLOB_CHOICE_LIST *lst = new BLOB_CHOICE_LIST();
+        BLOB_CHOICE_IT lst_it(lst);
+        lst_it.add_to_end(new BLOB_CHOICE(best_choice->unichar_id(i),
+                                          0.0, 0.0, 0, -1));
+        ambig_blob_choices.push_back(lst);
+      }
+    }
+    UNICHAR_ID wrong_ngram[MAX_AMBIG_SIZE + 1];
+    int wrong_ngram_index;
+    int next_index;
+    for (i = 0; i < best_choice->length(); ++i) {
+      UNICHAR_ID curr_unichar_id = best_choice->unichar_id(i);
+      if (stopper_debug_level > 2) {
+        tprintf("Looking for %s ngrams starting with %s:\n",
+                replace ? "replaceable" : "ambiguous",
+                getUnicharset().debug_str(curr_unichar_id).string());
+      }
+      wrong_ngram_index = 0;
+      wrong_ngram[wrong_ngram_index] = curr_unichar_id;
+      if (curr_unichar_id == INVALID_UNICHAR_ID ||
+          curr_unichar_id >= table.size() ||
+          table[curr_unichar_id] == NULL) {
+        continue;  // there is no ambig spec for this unichar id
+      }
+      AmbigSpec_IT spec_it(table[curr_unichar_id]);
+      for (spec_it.mark_cycle_pt(); !spec_it.cycled_list();) {
+        const AmbigSpec *ambig_spec = spec_it.data();
+        wrong_ngram[wrong_ngram_index+1] = INVALID_UNICHAR_ID;
+        int compare = UnicharIdArrayUtils::compare(wrong_ngram,
+                                                   ambig_spec->wrong_ngram);
+        if (stopper_debug_level > 2) {
+          tprintf("candidate ngram: ");
+          UnicharIdArrayUtils::print(wrong_ngram, getUnicharset());
+          tprintf("current ngram from spec: ");
+          UnicharIdArrayUtils::print(ambig_spec->wrong_ngram, getUnicharset());
+          tprintf("comparison result: %d\n", compare);
+        }
+        if (compare == 0) {
+          if (replace) {
+            if (stopper_debug_level > 2) {
+              tprintf("replace ambiguity with: ");
+              UnicharIdArrayUtils::print(
+                  ambig_spec->correct_fragments, getUnicharset());
+            }
+            ReplaceAmbig(i, ambig_spec->wrong_ngram_size,
+                         ambig_spec->correct_ngram_id,
+                         best_choice, blob_choices, modified_blobs);
+            modified_best_choice = true;
+          } else if (i > 0 || ambig_spec->type != CASE_AMBIG) {
+            // We found dang ambig - update ambig_blob_choices.
+            if (stopper_debug_level > 2) {
+              tprintf("found ambiguity: ");
+              UnicharIdArrayUtils::print(
+                  ambig_spec->correct_fragments, getUnicharset());
+            }
+            ambigs_found = true;
+            for (int tmp_index = 0; tmp_index <= wrong_ngram_index;
+                 ++tmp_index) {
+              // Add a blob choice for the corresponding fragment of the
+              // ambiguity. These fake blob choices are initialized with
+              // negative ratings (which are not possible for real blob
+              // choices), so that dawg_permute_and_select() considers any
+              // word not consisting of only the original letters a better
+              // choice and stops searching for alternatives once such a
+              // choice is found.
+              BLOB_CHOICE_IT bc_it(ambig_blob_choices[i+tmp_index]);
+              bc_it.add_to_end(new BLOB_CHOICE(
+                  ambig_spec->correct_fragments[tmp_index], -1.0, 0.0, 0, -1));
+            }
+          }
+          spec_it.forward();
+        } else if (compare == -1) {
+          if (wrong_ngram_index+1 < ambig_spec->wrong_ngram_size &&
+              ((next_index = wrong_ngram_index+1+i) < best_choice->length())) {
+            // Add the next unichar id to wrong_ngram and keep looking for
+            // more ambigs starting with curr_unichar_id in AMBIG_SPEC_LIST.
+            wrong_ngram[++wrong_ngram_index] =
+              best_choice->unichar_id(next_index);
     } else {
-      strncpy(NextNewChar, Word, *Word_lengths);
-      NextNewChar += *Word_lengths;
-      Word += *Word_lengths;
-      Word_lengths++;
-      bad_index++;
+            break;  // no more matching ambigs in this AMBIG_SPEC_LIST
+    }
+        } else {
+          spec_it.forward();
+  }
+      }  // end searching AmbigSpec_LIST
+    }  // end searching best_choice
+  }  // end searching replace and dangerous ambigs
+  if (modified_best_choice) best_choice->populate_unichars(getUnicharset());
+  // If any ambiguities were found permute the constructed ambig_blob_choices
+  // to see if an alternative dictionary word can be found.
+  if (ambigs_found) {
+    if (stopper_debug_level > 2) {
+      tprintf("\nResulting ambig_blob_choices:\n");
+      for (i = 0; i < ambig_blob_choices.length(); ++i) {
+        print_ratings_list("", ambig_blob_choices.get(i), getUnicharset());
+        tprintf("\n");
     }
   }
-  return (TRUE);
-}                                /* NoDangerousAmbig */
-
-void Dict::EndDangerousAmbigs() {
-  if (AmbigFor != NULL) {
-    for (int i = 0; i <= MAX_CLASS_ID; ++i) {
-      destroy_nodes(AmbigFor[i], Efree);
+    WERD_CHOICE *alt_word = dawg_permute_and_select(ambig_blob_choices, 0.0);
+    ambigs_found = (alt_word->rating() < 0.0);
+    if (ambigs_found && stopper_debug_level >= 1) {
+      tprintf ("Stopper: Possible ambiguous word = %s\n",
+               alt_word->debug_string(getUnicharset()).string());
     }
-    Efree(AmbigFor);
-    AmbigFor = NULL;
+    delete alt_word;
   }
+  ambig_blob_choices.delete_data_pointers();
+  return !ambigs_found;
 }
-}  // namespace tesseract
+
+void Dict::EndDangerousAmbigs() {}
 
 /*---------------------------------------------------------------------------*/
-void SettupStopperPass1() {
+void Dict::SettupStopperPass1() {
 /*
  **	Parameters: none
- **	Globals:
- **		RejectOffset	offset allowed before word is rejected
+ **	Variables Used:
+ **		reject_offset_	offset allowed before word is rejected
  **	Operation: This routine performs any settup of stopper variables
  **		that is needed in preparation for the first pass.
  **	Return: none
  **	Exceptions: none
  **	History: Mon Jun  3 12:32:00 1991, DSJ, Created.
  */
-  RejectOffset = 0.0;
+  reject_offset_ = 0.0;
 }                                /* SettupStopperPass1 */
 
 
 /*---------------------------------------------------------------------------*/
-void SettupStopperPass2() {
+void Dict::SettupStopperPass2() {
 /*
  **	Parameters: none
- **	Globals:
- **		RejectOffset	offset allowed before word is rejected
+ **	Variables Used:
+ **		reject_offset_	offset allowed before word is rejected
  **	Operation: This routine performs any settup of stopper variables
  **		that is needed in preparation for the second pass.
  **	Return: none
  **	Exceptions: none
  **	History: Mon Jun  3 12:32:00 1991, DSJ, Created.
  */
-  RejectOffset = stopper_phase2_certainty_rejection_offset;
+  reject_offset_ = stopper_phase2_certainty_rejection_offset;
 }                                /* SettupStopperPass2 */
+}  // namespace tesseract
 
 
 /**----------------------------------------------------------------------------
@@ -835,7 +883,6 @@ void AddNewChunk(VIABLE_CHOICE Choice, int Blob) {
  **	Parameters:
  **		Choice	choice to add a new chunk to
  **		Blob	index of blob being split
- **	Globals: none
  **	Operation: This routine increments the chunk count of the character
  **		in Choice which corresponds to Blob.
  **	Return: none
@@ -861,79 +908,92 @@ void AddNewChunk(VIABLE_CHOICE Choice, int Blob) {
 
 /*---------------------------------------------------------------------------*/
 namespace tesseract {
-int Dict::AmbigsFound(char *Word,
-                      char *CurrentChar,
-                      const char *Tail,
-                      const char *Tail_lengths,
-                      LIST Ambigs,
-                      DANGERR *fixpt) {
-/*
- **	Parameters:
- **		Word		word being tested for ambiguities
- **		CurrentChar	position in Word to put ambig replacement
- **		Tail		end of word to place after ambiguity
- **		Tail_lengths    lengths of the unichars in Tail
- **		Ambigs		list of ambiguities to test at this position
- **	Globals: none
- **	Operation: For each ambiguity in Ambigs, see if the remainder of
- **		the test string matches the start of Tail.  If it does,
- **		construct a word consisting of the contents of Word up to,
- **		but not including, CurrentChar followed by the replacement
- **		string for the ambiguity followed by the unmatched
- **		contents of Tail.  Then test this word to see if it
- **		is a dictionary word.  If it is return TRUE.  If none of
- **		the ambiguities result in a dictionary word, return FALSE.
- **	Return: TRUE if the Word is ambiguous at the specified position
- **	Exceptions: none
- **	History: Thu May  9 10:10:28 1991, DSJ, Created.
- */
-  AMBIG_SPEC *AmbigSpec;
-  char *ambig;
-  char *ambig_lengths;
-  const char *UnmatchedTail;
-  const char *UnmatchedTail_lengths;
-  int Matches;
-  int bad_length;
-
-  iterate(Ambigs) {
-    AmbigSpec = (AMBIG_SPEC *) first_node (Ambigs);
-    ambig = AmbigSpec->ambig;
-    ambig_lengths = AmbigSpec->lengths;
-    bad_length = 1;
-    UnmatchedTail = Tail;
-    UnmatchedTail_lengths = Tail_lengths;
-    Matches = TRUE;
-
-    while (*ambig != ' ' && Matches)
-      if (*UnmatchedTail_lengths == *ambig_lengths &&
-          strncmp(ambig, UnmatchedTail, *ambig_lengths) == 0) {
-        ambig += *(ambig_lengths++);
-        UnmatchedTail += *(UnmatchedTail_lengths++);
-        bad_length++;
+// Replaces the corresponding wrong ngram in werd_choice with the correct one.
+// We indicate that this newly inserted ngram unichar is composed from several
+// fragments and modify the corresponding entries in blob_choices to contain
+// fragments of the correct ngram unichar instead of the original unichars.
+// Ratings and certainties of entries in blob_choices and werd_choice are
+// unichaged. E.g. for werd_choice mystring'' and ambiguity ''->":
+// werd_choice becomes mystring", first ' in blob_choices becomes |"|0|2,
+// second one is set to |"|1|2.
+void Dict::ReplaceAmbig(int wrong_ngram_begin_index, int wrong_ngram_size,
+                        UNICHAR_ID correct_ngram_id, WERD_CHOICE *werd_choice,
+                        BLOB_CHOICE_LIST_VECTOR *blob_choices,
+                        bool *modified_blobs) {
+  int num_blobs_to_replace = 0;
+  int begin_blob_index = 0;
+  int i;
+  for (i = 0; i < wrong_ngram_begin_index + wrong_ngram_size; ++i) {
+    if (i >= wrong_ngram_begin_index) {
+      num_blobs_to_replace +=  werd_choice->fragment_length(i);
+    } else {
+      begin_blob_index += werd_choice->fragment_length(i);
       }
-      else
-        Matches = FALSE;
-
-    if (Matches) {
-      ambig += *(ambig_lengths++); /* skip over the space */
-                                   /* insert replacement string */
-      strcpy(CurrentChar, ambig);
-                                   /* add tail */
-      strcat(Word, UnmatchedTail);
-      if (valid_word (Word)) {
-        if (stopper_debug_level >= 1)
-          cprintf ("Stopper:  Possible ambiguous word = %s\n", Word);
-        if (fixpt != NULL) {
-          fixpt->good_length = strlen (ambig_lengths);
-          fixpt->bad_length = bad_length;
         }
-        return (TRUE);
+  BLOB_CHOICE_IT bit;
+  int temp_blob_index = begin_blob_index;
+  const char *temp_uch = NULL;
+  const char *correct_ngram_str =
+    getUnicharset().id_to_unichar(correct_ngram_id);
+  for (int replaced_count = 0; replaced_count < wrong_ngram_size;
+       ++replaced_count) {
+    if (blob_choices != NULL) {
+      UNICHAR_ID uch_id = werd_choice->unichar_id(wrong_ngram_begin_index);
+      int fraglen = werd_choice->fragment_length(wrong_ngram_begin_index);
+      if (fraglen > 1) temp_uch = getUnicharset().id_to_unichar(uch_id);
+      for (i = 0; i < fraglen; ++i) {
+        if (fraglen > 1) {
+          STRING frag_str =
+            CHAR_FRAGMENT::to_string(temp_uch, i, fraglen);
+          getUnicharset().unichar_insert(frag_str.string());
+          uch_id = getUnicharset().unichar_to_id(frag_str.string());
+        }
+        bit.set_to_list(blob_choices->get(temp_blob_index));
+        STRING correct_frag_uch =
+          CHAR_FRAGMENT::to_string(correct_ngram_str,
+                                   temp_blob_index - begin_blob_index,
+                                   num_blobs_to_replace);
+        getUnicharset().unichar_insert(correct_frag_uch.string());
+        UNICHAR_ID correct_frag_uch_id =
+          getUnicharset().unichar_to_id(correct_frag_uch.string());
+        // Find the WERD_CHOICE corresponding to the original unichar in
+        // the list of blob choices, add the derived character fragment
+        // before it with the same rating and certainty.
+        for (bit.mark_cycle_pt(); !bit.cycled_list(); bit.forward()) {
+          if (bit.data()->unichar_id() == correct_frag_uch_id) {
+            break;  // the unichar we want to insert is already there
+          }
+          if (bit.data()->unichar_id() == uch_id) {
+            bit.add_before_then_move(new BLOB_CHOICE(*(bit.data())));
+            bit.data()->set_unichar_id(correct_frag_uch_id);
+            if (modified_blobs != NULL) *modified_blobs = true;
+            break;
+          }
+        }
+        temp_blob_index++;
+      }
+    }
+    // Remove current unichar from werd_choice. On the last iteration
+    // set the correct replacement unichar instead of removing a unichar.
+    if (replaced_count + 1 == wrong_ngram_size) {
+      werd_choice->set_unichar_id(correct_ngram_id,
+          num_blobs_to_replace, 0.0, 0.0, wrong_ngram_begin_index);
+    } else {
+      werd_choice->remove_unichar_id(wrong_ngram_begin_index);
+    }
+  }
+  if (stopper_debug_level >= 1) {
+    tprintf("ReplaceAmbigs() modified werd_choice: %s\n",
+            werd_choice->debug_string(getUnicharset()).string());
+    werd_choice->print();
+    if (modified_blobs != NULL && *modified_blobs && blob_choices != NULL) {
+      tprintf("Modified blob_choices: ");
+      for (int i = 0; i < blob_choices->size(); ++i) {
+        print_ratings_list("\n", blob_choices->get(i), getUnicharset());
+      }
       }
     }
   }
-  return (FALSE);
-
-}                                /* AmbigsFound */
 
 
 /*---------------------------------------------------------------------------*/
@@ -943,7 +1003,6 @@ int Dict::ChoiceSameAs(const WERD_CHOICE &WordChoice,
  **	Parameters:
  **		Choice		choice to compare to ViableChoice
  **		ViableChoice	viable choice to compare to Choice
- **	Globals: none
  **	Operation: This routine compares the corresponding strings of
  **		Choice and ViableChoice and returns TRUE if they are the
  **		same, FALSE otherwise.
@@ -963,7 +1022,6 @@ int CmpChoiceRatings(void *arg1,    //VIABLE_CHOICE                 Choice1,
 /*
  **	Parameters:
  **		Choice1, Choice2	choices to compare ratings for
- **	Globals: none
  **	Operation: Return -1 if the rating for Choice1 is less than the
  **		rating for Choice2, otherwise return (1).
  **	Return: -1 or 1
@@ -991,7 +1049,6 @@ void ExpandChoice(VIABLE_CHOICE Choice, EXPANDED_CHOICE *ExpandedChoice) {
  **	Parameters:
  **		Choice		choice to be expanded
  **		ExpandedChoice	place to put resulting expanded choice
- **	Globals: none
  **	Operation: This routine expands Choice and places the results
  **		in ExpandedChoice.  The primary function of expansion
  **		is to create an two arrays, one which holds the corresponding
@@ -1011,105 +1068,6 @@ void ExpandChoice(VIABLE_CHOICE Choice, EXPANDED_CHOICE *ExpandedChoice) {
   }
 }                                /* ExpandChoice */
 
-
-/*---------------------------------------------------------------------------*/
-namespace tesseract {
-AMBIG_TABLE *Dict::FillAmbigTable() {
-/*
- **	Parameters: none
- **	Globals:
- **		DangerousAmbigs		filename of dangerous ambig info
- **	Operation: This routine allocates a new ambiguity table and fills
- **		it in from the file specified by DangerousAmbigs.  An
- **		ambiguity table is an array of lists.  The array is indexed
- **		by a class id.  Therefore, each entry in the table provides
- **		a list of potential ambiguities which can start with the
- **		corresponding character.  Each potential ambiguity is
- **		described by a string which contains the remainder of the
- **		test string followed by a space followed by the replacement
- **		string.  For example the ambiguity "rn -> m", would be
- **		located in the table at index 'r'.  The string corresponding
- **		to this ambiguity would be "n m".
- **	Return: Pointer to new ambiguity table.
- **	Exceptions: none
- **	History: Thu May  9 09:20:57 1991, DSJ, Created.
- */
-  FILE *AmbigFile;
-  AMBIG_TABLE *NewTable;
-  int i;
-  int AmbigPartSize;
-  char buffer[256 * UNICHAR_LEN];
-  char TestString[256 * UNICHAR_LEN];
-  char TestString_lengths[256];
-  char ReplacementString[256 * UNICHAR_LEN];
-  char ReplacementString_lengths[256];
-  STRING name;
-  char lengths[2];
-  AMBIG_SPEC *AmbigSpec;
-  UNICHAR_ID unichar_id;
-
-  lengths[1] = 0;
-
-  name = getImage()->getCCUtil()->language_data_path_prefix;
-  name += DangerousAmbigs;
-  AmbigFile = Efopen (name.string(), "r");
-  NewTable = (AMBIG_TABLE *) Emalloc (sizeof (LIST) * (MAX_CLASS_ID + 1));
-
-  for (i = 0; i <= MAX_CLASS_ID; i++)
-    NewTable[i] = NIL;
-
-  while (fscanf (AmbigFile, "%d", &AmbigPartSize) == 1) {
-    TestString[0] = '\0';
-    TestString_lengths[0] = 0;
-    ReplacementString[0] = '\0';
-    ReplacementString_lengths[0] = 0;
-    bool illegal_char = false;
-    for (i = 0; i < AmbigPartSize; ++i) {
-      fscanf (AmbigFile, "%s", buffer);
-      strcat(TestString, buffer);
-      lengths[0] = strlen(buffer);
-      strcat(TestString_lengths, lengths);
-      if (!getUnicharset().contains_unichar(buffer))
-        illegal_char = true;
-    }
-    fscanf (AmbigFile, "%d", &AmbigPartSize);
-    for (i = 0; i < AmbigPartSize; ++i) {
-      fscanf (AmbigFile, "%s", buffer);
-      strcat(ReplacementString, buffer);
-      lengths[0] = strlen(buffer);
-      strcat(ReplacementString_lengths, lengths);
-      if (!getUnicharset().contains_unichar(buffer))
-        illegal_char = true;
-    }
-
-    if (strlen (TestString_lengths) > MAX_AMBIG_SIZE ||
-        strlen (ReplacementString_lengths) > MAX_AMBIG_SIZE)
-      DoError (0, "Illegal ambiguity specification!");
-    if (illegal_char) {
-      continue;
-    }
-
-    AmbigSpec = (AMBIG_SPEC *) Emalloc (sizeof (AMBIG_SPEC));
-
-    strcpy(AmbigSpec->ambig, TestString + TestString_lengths[0]);
-    strcat(AmbigSpec->ambig, " ");
-    strcat(AmbigSpec->ambig, ReplacementString);
-
-    strcpy(AmbigSpec->lengths, TestString_lengths + 1);
-    lengths[0] = 1;
-    strcat(AmbigSpec->lengths, lengths);
-    strcat(AmbigSpec->lengths, ReplacementString_lengths);
-    unichar_id = getUnicharset().unichar_to_id(TestString,
-                                               TestString_lengths[0]);
-    NewTable[unichar_id] = push_last (NewTable[unichar_id], AmbigSpec);
-  }
-
-  fclose(AmbigFile);
-  return (NewTable);
-
-}                                /* FillAmbigTable */
-}  // namespace tesseract
-
 /*---------------------------------------------------------------------------*/
 int FreeBadChoice(void *item1,    //VIABLE_CHOICE                 Choice,
                   void *item2) {  //EXPANDED_CHOICE                       *BestChoice)
@@ -1117,7 +1075,7 @@ int FreeBadChoice(void *item1,    //VIABLE_CHOICE                 Choice,
  **	Parameters:
  **		Choice			choice to be tested
  **		BestChoice		best choice found
- **	Globals:
+ **	Variables Used:
  **		stopper_ambiguity_threshold_gain
  **		stopper_ambiguity_threshold_offset
  **	Operation: If the certainty of any chunk in Choice is not ambiguous
@@ -1158,13 +1116,12 @@ int Dict::LengthOfShortestAlphaRun(const WERD_CHOICE &WordChoice) {
 /*
  **	Parameters:
  **		Word            word to be tested
- **	Globals: none
  **	Operation: Return the length of the shortest alpha run in Word.
  **	Return:  Return the length of the shortest alpha run in Word.
  **	Exceptions: none
  **	History: Tue May 14 07:50:45 1991, DSJ, Created.
  */
-  register int Shortest = MAXINT;
+  register int Shortest = MAX_INT32;
   register int Length;
   int x;
   int y;
@@ -1183,7 +1140,7 @@ int Dict::LengthOfShortestAlphaRun(const WERD_CHOICE &WordChoice) {
       }
     }
   }
-  if (Shortest == MAXINT)
+  if (Shortest == MAX_INT32)
     Shortest = 0;
 
   return (Shortest);
@@ -1200,10 +1157,10 @@ VIABLE_CHOICE Dict::NewViableChoice(const WERD_CHOICE &WordChoice,
  **		Choice		choice to be converted to a viable choice
  **		AdjustFactor	factor used to adjust ratings for Choice
  **		Certainties	certainty for each character in Choice
- **	Globals:
- **		CurrentSegmentation	segmentation corresponding to Choice
+ **	Variables Used:
+ **		current_segmentation	segmentation corresponding to Choice
  **	Operation: Allocate a new viable choice data structure, copy
- **		Choice, Certainties, and CurrentSegmentation into it,
+ **		Choice, Certainties, and current_segmentation_ into it,
  **		and return a pointer to it.
  **	Return: Ptr to new viable choice.
  **	Exceptions: none
@@ -1225,7 +1182,6 @@ void Dict::PrintViableChoice(FILE *File, const char *Label, VIABLE_CHOICE Choice
  **		File	open text file to print Choice to
  **		Label	text label to be printed with Choice
  **		Choice	choice to be printed
- **	Globals: none
  **	Operation: This routine dumps a text representation of the
  **		specified Choice to File.
  **	Return: none
@@ -1277,8 +1233,8 @@ void Dict::FillViableChoice(const WERD_CHOICE &WordChoice,
  **             SameString      if true the string in the viable choice
  **                             will not be changed
  **		ViableChoice	existing viable choice to fill in
- **	Globals:
- **		CurrentSegmentation	segmentation for NewChoice
+ **	Variables Used:
+ **		current_segmentation_	segmentation for NewChoice
  **	Operation:
  **             Fill ViableChoice with information from AChoice,
  **             AdjustFactor, and Certainties.
@@ -1299,7 +1255,7 @@ void Dict::FillViableChoice(const WERD_CHOICE &WordChoice,
   }
   for (x = 0,
        NewChar = &(ViableChoice->Blob[0]),
-       BlobWidth = CurrentSegmentation;
+       BlobWidth = current_segmentation_;
        x < WordChoice.length();
        x++, NewChar++, Certainties++, BlobWidth++) {
     if (!SameString) {
@@ -1344,7 +1300,6 @@ int Dict::StringSameAs(const char *String,
  **		String		string to compare to ViableChoice
  **		String_lengths	lengths of unichars in String
  **		ViableChoice	viable choice to compare to String
- **	Globals: none
  **	Operation: This routine compares String to ViableChoice and
  **		returns TRUE if they are the same, FALSE otherwise.
  **	Return: TRUE or FALSE.
@@ -1380,8 +1335,9 @@ int UniformCertainties(const BLOB_CHOICE_LIST_VECTOR &Choices,
  **	Parameters:
  **		Choices		choices for current segmentation
  **		BestChoice	best choice for current segmentation
- **	Globals:
- **		stopper_allowable_character_badness	max allowed certainty variation
+ **	Variables Used:
+ **		stopper_allowable_character_badness
+ **             max allowed certainty variation
  **	Operation: This routine returns TRUE if the certainty of the
  **		BestChoice word is within a reasonable range of the average
  **		certainties for the best choices for each character in

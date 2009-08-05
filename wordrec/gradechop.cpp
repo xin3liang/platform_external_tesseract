@@ -26,7 +26,6 @@
               I n c l u d e s
 ----------------------------------------------------------------------*/
 #include "gradechop.h"
-#include "debug.h"
 #include "olutil.h"
 #include "chop.h"
 #include "ndminx.h"
@@ -97,7 +96,7 @@ PRIORITY grade_center_of_blob(register BOUNDS_RECT rect) {
   if (grade < 0)
     grade = -grade;
 
-  grade *= center_knob;
+  grade *= chop_center_knob;
   grade = MIN (CENTER_GRADE_CAP, grade);
   return (MAX (0.0, grade));
 }
@@ -127,7 +126,7 @@ PRIORITY grade_overlap(register BOUNDS_RECT rect) {
   width1 = 2 * overlap - width1; /* Extra penalty for too */
   overlap += MAX (0, width1);    /* much overlap */
 
-  grade = overlap * overlap_knob;
+  grade = overlap * chop_overlap_knob;
 
   return (MAX (0.0, grade));
 }
@@ -145,12 +144,12 @@ PRIORITY grade_split_length(register SPLIT *split) {
   register float split_length;
 
   split_length = weighted_edgept_dist (split->point1, split->point2,
-    x_y_weight);
+    chop_x_y_weight);
 
   if (split_length <= 0)
     grade = 0;
   else
-    grade = sqrt (split_length) * split_dist_knob;
+    grade = sqrt (split_length) * chop_split_dist_knob;
 
   return (MAX (0.0, grade));
 }
@@ -173,7 +172,7 @@ PRIORITY grade_sharpness(register SPLIT *split) {
   else
     grade += 360.0;
 
-  grade *= sharpness_knob;       /* Values 0 to -360 */
+  grade *= chop_sharpness_knob;       /* Values 0 to -360 */
 
   return (grade);
 }
@@ -197,7 +196,7 @@ PRIORITY grade_width_change(register BOUNDS_RECT rect) {
   grade = 20 - (MAX (rect[1], rect[3])
     - MIN (rect[0], rect[2]) - MAX (width1, width2));
 
-  grade *= width_change_knob;
+  grade *= chop_width_change_knob;
 
   return (MAX (0.0, grade));
 }

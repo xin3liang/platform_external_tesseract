@@ -136,7 +136,7 @@ void put_match(TBLOB *blob, BLOB_CHOICE_LIST *ratings) {
       match_table[x].botright = botright;
       // Copy ratings to match_table[x].rating
       match_table[x].rating = new BLOB_CHOICE_LIST();
-      match_table[x].rating->deep_copy(ratings);
+      match_table[x].rating->deep_copy(ratings, &BLOB_CHOICE::deep_copy);
       return;
     }
     if (++x >= NUM_MATCH_ENTRIES)
@@ -189,13 +189,68 @@ BLOB_CHOICE_LIST *get_match_by_bounds(unsigned int topleft,
     if (match_table[x].topleft == topleft &&
         match_table[x].botright == botright) {
       BLOB_CHOICE_LIST *blist = new BLOB_CHOICE_LIST();
-      blist->deep_copy(match_table[x].rating);
+      blist->deep_copy(match_table[x].rating, &BLOB_CHOICE::deep_copy);
       return blist;
     }
     if (++x >= NUM_MATCH_ENTRIES)
       x = 0;
   }
   while (x != start);
-
   return NULL;
+}
+
+/**********************************************************************
+ * add_to_match
+ *
+ * Update ratings list in the match_table corresponding to the given
+ * blob. The function assumes that:
+ * -- the match table contains the initial non-NULL list with choices
+ *    for the given blob
+ * -- the new ratings list is a superset of the corresponding list in
+ *    the match_table and the unichar ids of the blob choices in the
+ *    list are unique.
+ * The entries that appear in the new ratings list and not in the
+ * old one are added to the old ratings list in the match_table.
+ **********************************************************************/
+void add_to_match(TBLOB *blob, BLOB_CHOICE_LIST *ratings) {
+  unsigned int topleft;
+  unsigned int botright;
+  TPOINT tp_topleft;
+  TPOINT tp_botright;
+  blob_bounding_box(blob, &tp_topleft, &tp_botright);
+  topleft = *(unsigned int *) &tp_topleft;
+  botright = *(unsigned int *) &tp_botright;
+  unsigned int start;
+  int x;
+  /* Do starting hash */
+  start = (topleft * botright) % NUM_MATCH_ENTRIES;
+  /* Search for match */
+  x = start;
+  do {
+    if (blank_entry(match_table, x)) {
+      fprintf(stderr, "Can not update uninitialized entry in match_table\n");
+      ASSERT_HOST(!blank_entry(match_table, x));
+    }
+    if (match_table[x].topleft == topleft &&
+        match_table[x].botright == botright) {
+      // Copy new ratings to match_table[x].rating.
+      BLOB_CHOICE_IT it;
+      it.set_to_list(match_table[x].rating);
+      BLOB_CHOICE_IT new_it;
+      new_it.set_to_list(ratings);
+      assert(it.length() <= new_it.length());
+      for (it.mark_cycle_pt(), new_it.mark_cycle_pt();
+           !it.cycled_list() && !new_it.cycled_list(); new_it.forward()) {
+        if (it.data()->unichar_id() == new_it.data()->unichar_id()) {
+          it.forward();
+        } else {
+          it.add_before_stay_put(new BLOB_CHOICE(*(new_it.data())));
+        }
+      }
+      return;
+    }
+    if (++x >= NUM_MATCH_ENTRIES)
+      x = 0;
+  }
+  while (x != start);
 }

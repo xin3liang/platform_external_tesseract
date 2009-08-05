@@ -21,9 +21,7 @@
 #define           SCANEDG_H
 
 #include          "varable.h"
-#ifndef GRAPHICS_DISABLED
 #include          "scrollview.h"
-#endif
 #include          "img.h"
 #include          "pdblock.h"
 #include          "crakedge.h"

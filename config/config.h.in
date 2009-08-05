@@ -9,6 +9,9 @@
 /* Define to 1 if you have the `acos' function. */
 #undef HAVE_ACOS
 
+/* Define to 1 if you have the <allheaders.h> header file. */
+#undef HAVE_ALLHEADERS_H
+
 /* Define to 1 if you have the `asin' function. */
 #undef HAVE_ASIN
 
@@ -24,8 +27,23 @@
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
 
+/* Define to 1 if you have the `jpeg' library (-ljpeg). */
+#undef HAVE_LIBJPEG
+
+/* Define to 1 if you have the `lept' library (-llept). */
+#undef HAVE_LIBLEPT
+
+/* Define to 1 if you have the `png' library (-lpng). */
+#undef HAVE_LIBPNG
+
+/* Define to 1 if you have the `pthread' library (-lpthread). */
+#undef HAVE_LIBPTHREAD
+
 /* Define if you have the www.libtiff.org LIBTIFF library. */
 #undef HAVE_LIBTIFF
+
+/* Define to 1 if you have the `z' library (-lz). */
+#undef HAVE_LIBZ
 
 /* Define to 1 if you have the <limits.h> header file. */
 #undef HAVE_LIMITS_H
@@ -154,7 +172,7 @@
 /* Define to `int' if <sys/types.h> does not define. */
 #undef pid_t
 
-/* Define to `unsigned' if <sys/types.h> does not define. */
+/* Define to `unsigned int' if <sys/types.h> does not define. */
 #undef size_t
 
 /* Define as `fork' if `vfork' does not work. */

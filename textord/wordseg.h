@@ -29,6 +29,11 @@ class Tesseract;
 }
 
 extern BOOL_VAR_H (textord_fp_chopping, TRUE, "Do fixed pitch chopping");
+extern BOOL_VAR_H(textord_force_make_prop_words, FALSE,
+                  "Force proportional word segmentation on all rows");
+extern BOOL_VAR_H (textord_chopper_test, FALSE,
+                   "Chopper is being tested.");
+
 void make_single_word(bool one_blob, TO_ROW_LIST *rows, ROW_LIST* real_rows);
 void make_words(                             //make words
                 ICOORD page_tr,              //top right
@@ -74,3 +79,4 @@ WERD *make_real_word(                      //make a WERD
                      uinT8 blanks          //no of blanks
                     );
 #endif
+

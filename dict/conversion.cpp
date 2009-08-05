@@ -30,13 +30,18 @@
 #include "unicharset.h"
 
 namespace tesseract {
+int Dict::valid_word(const char *string) {
+  WERD_CHOICE word(string, getUnicharset());
+  return valid_word(word);
+}
+
 void Dict::LogNewWordChoice(A_CHOICE *a_choice,
                             FLOAT32 adjust_factor,
                             const float certainties[],
                             const UNICHARSET &unicharset) {
   WERD_CHOICE word_choice(strlen(a_choice->lengths));
   convert_to_word_choice(a_choice, unicharset, &word_choice);
-  LogNewWordChoice(word_choice, adjust_factor, certainties);
+  LogNewChoice(word_choice, adjust_factor, certainties, false);
 }
 }  // namespace tesseract
 

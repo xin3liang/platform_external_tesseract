@@ -38,13 +38,11 @@
 #include "cluster.h"
 #include "protos.h"
 #include "ndminx.h"
-#include "debug.h"
 #include "tprintf.h"
 #include "const.h"
 #include "mergenf.h"
 #include "name2char.h"
 #include "intproto.h"
-#include "variables.h"
 #include "freelist.h"
 #include "efio.h"
 #include "danerror.h"
@@ -220,8 +218,6 @@ int main (int argc, char **argv) {
     OutputUnicharsetFile = kOutputUnicharsetFile;
   }
 
-  InitFastTrainerVars ();
-  InitSubfeatureVars ();
   if (!unicharset_training.load_from_file(InputUnicharsetFile)) {
     fprintf(stderr, "Failed to load unicharset from file %s\n"
             "Building unicharset for mftraining from scratch...\n",
@@ -268,11 +264,21 @@ int main (int argc, char **argv) {
     if (short_name == NULL)
       short_name = PageName;
     else
-      short_name++;
+      ++short_name;
+    // filename is expected to be of the form [lang].[fontname].exp[num].tr
+    // If it is, then set short_name to be the [fontname]. Otherwise it is just
+    // the file basename with the .tr extension removed.
+    char *font_dot = strchr(short_name, '.');
+    char *exp_dot = (font_dot != NULL) ? strstr(font_dot, ".exp") : NULL;
+    if (font_dot != NULL && exp_dot != NULL && font_dot != exp_dot) {
+      short_name = new_dup(font_dot + 1);
+      short_name[exp_dot - font_dot - 1] = '\0';
+    } else {
     short_name = new_dup(short_name);
     int len = strlen(short_name);
-    if (strcmp(short_name + len - 3, ".tr") == 0)
+      if (!strcmp(short_name + len - 3, ".tr"))
       short_name[len - 3] = '\0';
+    }
     int fontinfo_id;
     FontInfo fontinfo;
     fontinfo.name = short_name;
@@ -336,7 +342,7 @@ int main (int argc, char **argv) {
               ProtoIn (MergeClass->Class, Pid));
           MergeClass->NumMerged[Pid] ++;
         }
-        Config2 = ConfigIn (MergeClass->Class, Cid);
+        Config2 = MergeClass->Class->Configurations[Cid];
         AddProtoToConfig (Pid, Config2);
       }
       FreeProtoList (&ProtoList);
@@ -345,8 +351,6 @@ int main (int argc, char **argv) {
   }
   //WriteMergedTrainingSamples(Directory,ClassList);
   WriteMicrofeat(Directory, ClassList);
-  InitIntProtoVars ();
-  InitPrototypes ();
   SetUpForFloat2Int(ClassList);
   IntTemplates = classify.CreateIntTemplates(TrainingData,
                                              unicharset_training);
@@ -430,7 +434,7 @@ LIST ReadTrainingSamples (
 		}
 		CharDesc = ReadCharDescription (File);
 		Type = ShortNameToFeatureType(PROGRAM_FEATURE_TYPE);
-		FeatureSamples = FeaturesOfType(CharDesc, Type);
+		FeatureSamples = CharDesc->FeatureSets[Type];
                 for (int feature = 0; feature < FeatureSamples->NumFeatures; ++feature) {
                   FEATURE f = FeatureSamples->Features[feature];
                   for (int dim =0; dim < f->Type->NumParams; ++dim)
@@ -440,9 +444,9 @@ LIST ReadTrainingSamples (
                 }
 		CharSample->List = push (CharSample->List, FeatureSamples);
         CharSample->SampleCount++;
-		for (i = 0; i < NumFeatureSetsIn (CharDesc); i++)
+		for (i = 0; i < CharDesc->NumFeatureSets; i++)
                   if (Type != i)
-                    FreeFeatureSet (FeaturesOfType (CharDesc, i));
+                    FreeFeatureSet(CharDesc->FeatureSets[i]);
 		free (CharDesc);
         }
 	return (TrainingSamples);
@@ -575,15 +579,15 @@ void WriteProtos(
 	PROTO Proto;
 
 	fprintf(File, "%s\n", MergeClass->Label);
-	fprintf(File, "%d\n", NumProtosIn(MergeClass->Class));
-	for(i=0; i < NumProtosIn(MergeClass->Class); i++)
+	fprintf(File, "%d\n", MergeClass->Class->NumProtos);
+	for(i=0; i < MergeClass->Class->NumProtos; i++)
 	{
 		Proto = ProtoIn(MergeClass->Class,i);
-		fprintf(File, "\t%8.4f %8.4f %8.4f %8.4f ", ProtoX(Proto), ProtoY(Proto),
-			ProtoLength(Proto), ProtoAngle(Proto));
-		Values[0] = ProtoX(Proto);
-		Values[1] = ProtoY(Proto);
-		Values[2] = ProtoAngle(Proto);
+		fprintf(File, "\t%8.4f %8.4f %8.4f %8.4f ", Proto->X, Proto->Y,
+			Proto->Length, Proto->Angle);
+		Values[0] = Proto->X;
+		Values[1] = Proto->Y;
+		Values[2] = Proto->Angle;
 		Normalize(Values);
 		fprintf(File, "%8.4f %8.4f %8.4f\n", Values[0], Values[1], Values[2]);
 	}
@@ -597,11 +601,11 @@ void WriteConfigs(
 	BIT_VECTOR Config;
 	int i, j, WordsPerConfig;
 
-	WordsPerConfig = WordsInVectorOfSize(NumProtosIn(Class));
-	fprintf(File, "%d %d\n", NumConfigsIn(Class),WordsPerConfig);
-	for(i=0; i < NumConfigsIn(Class); i++)
+	WordsPerConfig = WordsInVectorOfSize(Class->NumProtos);
+	fprintf(File, "%d %d\n", Class->NumConfigs,WordsPerConfig);
+	for(i=0; i < Class->NumConfigs; i++)
 	{
-		Config = ConfigIn(Class,i);
+		Config = Class->Configurations[i];
 		for(j=0; j < WordsPerConfig; j++)
 			fprintf(File, "%08x ", Config[j]);
 		fprintf(File, "\n");
@@ -613,7 +617,7 @@ void WriteConfigs(
 void WritePFFMTable(INT_TEMPLATES Templates, const char* filename) {
   FILE* fp = Efopen(filename, "wb");
   /* then write out each class */
-  for (int i = 0; i < NumClassesIn (Templates); i++) {
+  for (int i = 0; i < Templates->NumClasses; i++) {
     INT_CLASS Class = ClassForClassId (Templates, i);
     // Todo: Test with min instead of max
     // int MaxLength = LengthForConfigId(Class, 0);
@@ -621,14 +625,14 @@ void WritePFFMTable(INT_TEMPLATES Templates, const char* filename) {
     const char *unichar = unicharset_training.id_to_unichar(i);
     if (strcmp(unichar, " ") == 0) {
       unichar = "NULL";
-    } else if (NumIntConfigsIn(Class) == 0) {
+    } else if (Class->NumConfigs == 0) {
       cprintf("Error: no configs for class %s in mftraining\n", unichar);
     }
-    for (int ConfigId = 0; ConfigId < NumIntConfigsIn (Class); ConfigId++) {
+    for (int ConfigId = 0; ConfigId < Class->NumConfigs; ConfigId++) {
       // Todo: Test with min instead of max
       // if (LengthForConfigId (Class, ConfigId) < MaxLength)
-      if (LengthForConfigId (Class, ConfigId) > MaxLength)
-        MaxLength = LengthForConfigId (Class, ConfigId);
+      if (Class->ConfigLengths[ConfigId] > MaxLength)
+        MaxLength = Class->ConfigLengths[ConfigId];
     }
     fprintf(fp, "%s %d\n", unichar, MaxLength);
   }

@@ -90,14 +90,14 @@ WERD_CHOICE *Tesseract::recog_word(                     //recog one owrd
   ASSERT_HOST(word_choice->length() == blob_choices->length());
 
   /* Copy any reject blobs into the outword */
-  outword->rej_blob_list ()->deep_copy (word->rej_blob_list ());
+  outword->rej_blob_list()->deep_copy(word->rej_blob_list(), &PBLOB::deep_copy);
 
   if (tessedit_override_permuter) {
     /* Override the permuter type if a straight dictionary check disagrees. */
     perm_type = word_choice->permuter();
     if ((perm_type != SYSTEM_DAWG_PERM) &&
         (perm_type != FREQ_DAWG_PERM) && (perm_type != USER_DAWG_PERM)) {
-      real_dict_perm_type = dict_word(word_choice->unichar_string().string());
+      real_dict_perm_type = dict_word(*word_choice);
       if (((real_dict_perm_type == SYSTEM_DAWG_PERM) ||
            (real_dict_perm_type == FREQ_DAWG_PERM) ||
            (real_dict_perm_type == USER_DAWG_PERM)) &&
@@ -156,19 +156,12 @@ Tesseract::recog_word_recursive(
     UNICHAR_ID space_id = unicharset.unichar_to_id(" ");
     WERD_CHOICE *best_choice = new WERD_CHOICE();
     raw_choice = new WERD_CHOICE();
-
-    if (word->flag (W_EOL))
-      last_word_on_line = TRUE;
-    else
-      last_word_on_line = FALSE;
     initial_blob_choice_len = blob_choices->length();
     tessword = make_tess_word (word, NULL);
     tess_ratings = cc_recog(tessword, best_choice, raw_choice,
-      testing
-      && tester != NULL /* ? call_tester : NULL */ ,
-      testing
-      && trainer !=
-      NULL /* ? call_train_tester : NULL */ );
+                            testing && tester != NULL,
+                            testing && trainer != NULL,
+                            word->flag(W_EOL));
 
     outword = make_ed_word (tessword, word);  // convert word
     if (outword == NULL) {
@@ -259,7 +252,7 @@ Tesseract::split_and_recog_word(                        //recog one owrd
   WERD *second_word;             //fabricated word
   WERD *outword2;                //2nd output word
   PBLOB *blob;
-  WERD_CHOICE *result;           //resturn value
+  WERD_CHOICE *result;           //return value
   WERD_CHOICE *result2;          //output of 2nd word
   WERD_CHOICE *raw_choice2;      //raw version of 2nd
   float gap;                     //blob gap

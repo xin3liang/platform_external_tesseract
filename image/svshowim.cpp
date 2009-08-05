@@ -3,9 +3,7 @@
 //
 
 #include "svshowim.h"
-#ifndef GRAPHICS_DISABLED
 #include "scrollview.h"
-#endif
 #ifdef HAVE_CONFIG_H
 #include "config_auto.h"
 #endif
@@ -36,7 +34,9 @@ void sv_show_sub_image(IMAGE*    source,         // Image to show.
   } else {
     pix = source->ToPix();
   }
+#ifndef GRAPHICS_DISABLED
   window->Image(pix, xpos, window->TranslateYCoordinate(yext) + ypos);
+#endif
   pixDestroy(&pix);
 #endif
 }

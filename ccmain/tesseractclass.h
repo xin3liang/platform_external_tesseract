@@ -32,6 +32,7 @@ class CHAR_SAMPLE_LIST;
 class PAGE_RES;
 class PAGE_RES_IT;
 class BLOCK_LIST;
+class TO_BLOCK_LIST;
 class IMAGE;
 class WERD_RES;
 class ROW;
@@ -75,9 +76,27 @@ class Tesseract : public Wordrec {
   Tesseract();
   ~Tesseract();
 
+  void Clear();
+
+  // Simple accessors.
+  const FCOORD& reskew() const {
+    return reskew_;
+  }
+  // Destroy any existing pix and return a pointer to the pointer.
+  Pix** mutable_pix_binary() {
+    Clear();
+    return &pix_binary_;
+  }
+  Pix* pix_binary() const {
+    return pix_binary_;
+  }
+
   void SetBlackAndWhitelist();
-  void SegmentPage(const STRING* input_file,
-                   Pix* pix, IMAGE* image, BLOCK_LIST* blocks);
+  int SegmentPage(const STRING* input_file,
+                  IMAGE* image, BLOCK_LIST* blocks);
+  int AutoPageSeg(int width, int height, int resolution,
+                  bool single_column, IMAGE* image,
+                  BLOCK_LIST* blocks, TO_BLOCK_LIST* to_blocks);
 
   //// control.h /////////////////////////////////////////////////////////
   void recog_all_words(                                //process words
@@ -90,12 +109,26 @@ class Tesseract : public Wordrec {
   void classify_word_pass1(                 //recog one word
                            WERD_RES *word,  //word to do
                            ROW *row,
+                           BLOCK* block,
                            BOOL8 cluster_adapt,
                            CHAR_SAMPLES_LIST *char_clusters,
                            CHAR_SAMPLE_LIST *chars_waiting);
   void recog_pseudo_word(                         //recognize blobs
                          BLOCK_LIST *block_list,  //blocks to check
                          TBOX &selection_box);
+
+  // This method returns all the blobs in the specified blocks.
+  // It's the caller's responsibility to destroy the returned list.
+  C_BLOB_LIST* get_blobs_from_blocks(BLOCK_LIST* blocks  // blocks to look at.
+                                    );
+
+  // This method can be used to perform word-level training using box files.
+  // TODO: this can be modified to perform training in general case too.
+  void train_word_level_with_boxes(
+                                   const STRING& box_file,  // File with boxes.
+                                   const STRING& out_file,  // Output file.
+                                   BLOCK_LIST* blocks       // Blocks to use.
+                                  );
   void fix_rep_char(WERD_RES *word);
   void fix_quotes(               //make double quotes
                   WERD_CHOICE *choice,  //choice to fix
@@ -106,12 +139,14 @@ class Tesseract : public Wordrec {
   void match_word_pass2(                 //recog one word
                         WERD_RES *word,  //word to do
                         ROW *row,
+                        BLOCK* block,
                         float x_height);
   void classify_word_pass2(  //word to do
                            WERD_RES *word,
+                           BLOCK* block,
                            ROW *row);
   BOOL8 recog_interactive(            //recognize blobs
-                          BLOCK *,    //block
+                          BLOCK *block,    //block
                           ROW *row,   //row of word
                           WERD *word  //word to recognize
                          );
@@ -146,38 +181,41 @@ class Tesseract : public Wordrec {
   inT16 count_alphanums(const WERD_CHOICE &word);
   inT16 count_alphas(const WERD_CHOICE &word);
   //// tessedit.h ////////////////////////////////////////////////////////
+  void read_config_file(const char *filename, bool global_only);
   int init_tesseract(const char *arg0,
                      const char *textbase,
                      const char *language,
-                     const char *configfile,
-                     int configc,
-                     const char *const *configv);
+                     char **configs,
+                     int configs_size,
+                     bool configs_global_only);
 
   int init_tesseract_lm(const char *arg0,
                         const char *textbase,
+                        const char *language);
+
+  // Initializes the tesseract classifier without loading language models.
+  int init_tesseract_classifier(const char *arg0,
+                                const char *textbase,
                         const char *language,
-                        const char *configfile,
-                        int configc,
-                        const char *const *configv);
+                                char **configs,
+                                int configs_size,
+                                bool configs_global_only);
 
   void recognize_page(STRING& image_name);
   void end_tesseract();
 
-  void set_tess_tweak_vars();
-
-  void init_tesseract_lang_data(const char *arg0,
+  bool init_tesseract_lang_data(const char *arg0,
                                 const char *textbase,
                                 const char *language,
-                                const char *configfile,
-                                int configc,
-                                const char *const *configv);
+                                char **configs,
+                                int configs_size,
+                                bool configs_global_only);
+
   //// pgedit.h //////////////////////////////////////////////////////////
   SVMenuNode *build_menu_new();
   void pgeditor_main(BLOCK_LIST *blocks);
-#ifndef GRAPHICS_DISABLED
   void process_image_event( // action in image win
                            const SVEvent &event);
-#endif
   void pgeditor_read_file(                   // of serialised file
                           STRING &filename,
                           BLOCK_LIST *blocks  // block list to add to
@@ -189,10 +227,6 @@ class Tesseract : public Wordrec {
                               char *new_value   // any prompt data
                              );
   //// reject.h //////////////////////////////////////////////////////////
-  BOOL8 ambig_word(const char *start_word,
-                   char *temp_word,     //alterable copy
-                   inT16 test_char_pos  //idx to char to alter
-                  );
   const char *char_ambiguities(char c);
   void make_reject_map(            //make rej map for wd //detailed results
                        WERD_RES *word,
@@ -200,9 +234,6 @@ class Tesseract : public Wordrec {
                        ROW *row,
                        inT16 pass  //1st or 2nd?
                       );
-#ifndef EMBEDDED
-  void test_ambigs(const char *word);
-#endif
   BOOL8 one_ell_conflict(WERD_RES *word_res, BOOL8 update_map);
   inT16 first_alphanum_index(const char *word,
                              const char *word_lengths);
@@ -230,7 +261,7 @@ class Tesseract : public Wordrec {
   void set_done(  //set done flag
                 WERD_RES *word,
                 inT16 pass);
-  inT16 safe_dict_word(const char *s);
+  inT16 safe_dict_word(const WERD_CHOICE  &word);
   void flip_hyphens(WERD_RES *word);
   //// adaptions.h ///////////////////////////////////////////////////////
   void adapt_to_good_ems(WERD_RES *word,
@@ -306,13 +337,14 @@ class Tesseract : public Wordrec {
   //// fixspace.cpp ///////////////////////////////////////////////////////
   BOOL8 digit_or_numeric_punct(WERD_RES *word, int char_position);
   inT16 eval_word_spacing(WERD_RES_LIST &word_res_list);
-  void match_current_words(WERD_RES_LIST &words, ROW *row);
+  void match_current_words(WERD_RES_LIST &words, ROW *row, BLOCK* block);
   inT16 fp_eval_word_spacing(WERD_RES_LIST &word_res_list);
-  void fix_noisy_space_list(WERD_RES_LIST &best_perm, ROW *row);
+  void fix_noisy_space_list(WERD_RES_LIST &best_perm, ROW *row, BLOCK* block);
   void fix_fuzzy_space_list(  //space explorer
                             WERD_RES_LIST &best_perm,
-                            ROW *row);
-  void fix_sp_fp_word(WERD_RES_IT &word_res_it, ROW *row);
+                            ROW *row,
+                            BLOCK* block);
+  void fix_sp_fp_word(WERD_RES_IT &word_res_it, ROW *row, BLOCK* block);
   void fix_fuzzy_spaces(                               //find fuzzy words
                         volatile ETEXT_DESC *monitor,  //progress monitor
                         inT32 word_count,              //count of words in doc
@@ -420,7 +452,9 @@ class Tesseract : public Wordrec {
                        PBLOB *nblob,              //next blob
                        WERD *word,                //word it came from
                        DENORM *denorm,            //de-normaliser
-                       BLOB_CHOICE_LIST *ratings  //list of results
+                       BLOB_CHOICE_LIST *ratings,  //list of results
+                       // Sorted array of CP_RESULT_STRUCT from class pruner.
+                       CLASS_PRUNER_RESULTS cpresults
                       );
   BOOL8 tess_adaptable_word(                           //test adaptability
                             WERD *word,                //word to test
@@ -436,6 +470,9 @@ class Tesseract : public Wordrec {
   void apply_boxes(const STRING& fname,
                    BLOCK_LIST *block_list    //real blocks
                   );
+  // converts an array of boxes to a block list
+  int Boxes2BlockList(int box_cnt, TBOX *boxes, BLOCK_LIST *block_list,
+                      bool right2left);
   //// blobcmp.cpp ///////////////////////////////////////////////////////
   float compare_tess_blobs(TBLOB *blob1,
                            TEXTROW *row1,
@@ -466,12 +503,36 @@ class Tesseract : public Wordrec {
              "Take segmentation and labeling from box file");
   BOOL_VAR_H(tessedit_train_from_boxes, false,
              "Generate training data from boxed chars");
-  INT_VAR_H(tessedit_pageseg_mode, 0,
-            "Page seg mode: 0=auto, 1=col, 2=block, 3=line, 4=word, 6=char");
+  BOOL_VAR_H(tessedit_dump_pageseg_images, false,
+             "Dump itermediate images made during page segmentation");
+  INT_VAR_H(tessedit_pageseg_mode, 2,
+            "Page seg mode: 0=auto, 1=col, 2=block, 3=line, 4=word, 6=char"
+            " (Values from PageSegMode enum in baseapi.h)");
+  INT_VAR_H(tessedit_accuracyvspeed, 0,
+            "Accuracy V Speed tradeoff: 0 fastest, 100 most accurate"
+            " (Values from AccuracyVSpeed enum in baseapi.h)");
+  BOOL_VAR_H(tessedit_train_from_boxes_word_level, false,
+             "Generate training data from boxed chars at word level.");
   STRING_VAR_H(tessedit_char_blacklist, "",
                "Blacklist of chars not to recognize");
   STRING_VAR_H(tessedit_char_whitelist, "",
                "Whitelist of chars to recognize");
+  BOOL_VAR_H(global_tessedit_ambigs_training, false,
+             "Perform training for ambiguities");
+  //// ambigsrecog.cpp /////////////////////////////////////////////////////////
+  FILE *init_ambigs_training(const STRING &fname);
+  void ambigs_training_segmented(const STRING &fname,
+                                 PAGE_RES *page_res,
+                                 volatile ETEXT_DESC *monitor,
+                                 FILE *output_file);
+  void ambigs_classify_and_output(PAGE_RES_IT *page_res_it,
+                                  const char *label,
+                                  FILE *output_file);
+ private:
+  Pix* pix_binary_;
+  FCOORD deskew_;
+  FCOORD reskew_;
+  bool hindi_image_;
 };
 
 }  // namespace tesseract

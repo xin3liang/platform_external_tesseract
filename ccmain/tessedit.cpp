@@ -45,7 +45,6 @@
 //#include                                                      "fontfind.h"
 #include "permute.h"
 #include "permdawg.h"
-#include "permnum.h"
 #include "stopper.h"
 #include "adaptmatch.h"
 #include "intmatcher.h"
@@ -54,6 +53,7 @@
 #include "danerror.h"
 #include "globals.h"
 #include "tesseractclass.h"
+#include "varable.h"
 
 /*
 ** Include automatically generated configuration file if running autoconf
@@ -67,9 +67,6 @@
 
 #endif
 
-//extern "C" {
-#include          "callnet.h"    //phils nn stuff
-//}
 #include          "notdll.h"     //phils nn stuff
 
 #define VARDIR        "configs/" /*variables files */
@@ -78,49 +75,46 @@
 #define EXTERN
 
 EXTERN BOOL_EVAR (tessedit_write_vars, FALSE, "Write all vars to file");
-EXTERN BOOL_VAR (tessedit_tweaking_tess_vars, FALSE,
-"Fiddle tess config values");
 
-EXTERN double_VAR (tweak_garbage, 1.5, "Tess VAR");
-EXTERN double_VAR (tweak_ok_word, 1.25, "Tess VAR");
-EXTERN double_VAR (tweak_good_word, 1.1, "Tess VAR");
-EXTERN double_VAR (tweak_freq_word, 1.0, "Tess VAR");
-EXTERN double_VAR (tweak_ok_number, 1.4, "Tess VAR");
-EXTERN double_VAR (tweak_good_number, 1.1, "Tess VAR");
-EXTERN double_VAR (tweak_non_word, 1.25, "Tess VAR");
-EXTERN double_VAR (tweak_CertaintyPerChar, -0.5, "Tess VAR");
-EXTERN double_VAR (tweak_NonDictCertainty, -2.5, "Tess VAR");
-EXTERN double_VAR (tweak_RejectCertaintyOffset, 1.0, "Tess VAR");
-EXTERN double_VAR (tweak_GoodAdaptiveMatch, 0.125, "Tess VAR");
-EXTERN double_VAR (tweak_GreatAdaptiveMatch, 0.10, "Tess VAR");
-EXTERN INT_VAR (tweak_ReliableConfigThreshold, 2, "Tess VAR");
-EXTERN INT_VAR (tweak_AdaptProtoThresh, 230, "Tess VAR");
-EXTERN INT_VAR (tweak_AdaptFeatureThresh, 230, "Tess VAR");
-EXTERN INT_VAR (tweak_min_outline_points, 6, "Tess VAR");
-EXTERN INT_VAR (tweak_min_outline_area, 2000, "Tess VAR");
-EXTERN double_VAR (tweak_good_split, 50.0, "Tess VAR");
-EXTERN double_VAR (tweak_ok_split, 100.0, "Tess VAR");
-
-extern inT16 XOFFSET;
-extern inT16 YOFFSET;
-extern int NO_BLOCK;
-
-                                 //progress monitor
-ETEXT_DESC *global_monitor = NULL;
+ETEXT_DESC *global_monitor = NULL;  // progress monitor
 
 namespace tesseract {
 
-void Tesseract::init_tesseract_lang_data(const char *arg0,
-                   const char *textbase,
-                   const char *language,
-                   const char *configfile,
-                   int configc,
-                   const char *const *configv) {
+// Read a "config" file containing a set of variable, value pairs.
+// Searches the standard places: tessdata/configs, tessdata/tessconfigs
+// and also accepts a relative or absolute path name.
+void Tesseract::read_config_file(const char *filename, bool global_only) {
+  STRING path = datadir;
+  path += "configs/";
+  path += filename;
+  FILE* fp;
+  if ((fp = fopen(path.string(), "r")) != NULL) {
+    fclose(fp);
+  } else {
+    path = datadir;
+    path += "tessconfigs/";
+    path += filename;
+    if ((fp = fopen(path.string(), "r")) != NULL) {
+      fclose(fp);
+    } else {
+      path = filename;
+    }
+  }
+  read_variables_file(path.string(), global_only);
+}
+
+// Returns false if a unicharset file for the specified language was not found
+// or was invalid.
+// This function initializes TessdataManager. After TessdataManager is
+// no longer needed, TessdataManager::End() should be called.
+bool Tesseract::init_tesseract_lang_data(
+    const char *arg0, const char *textbase, const char *language,
+    char **configs, int configs_size, bool configs_global_only) {
   FILE *var_file;
   static char c_path[MAX_PATH];  //path for c code
 
-  // Set the basename, compute the data directory and read C++ configs.
-  main_setup(arg0, textbase, configc, configv);
+  // Set the basename, compute the data directory.
+  main_setup(arg0, textbase);
   debug_window_on.set_value (FALSE);
 
   if (tessedit_write_vars) {
@@ -135,57 +129,86 @@ void Tesseract::init_tesseract_lang_data(const char *arg0,
   demodir = c_path;
 
   // Set the language data path prefix
+  lang = language != NULL ? language : "eng";
   language_data_path_prefix = datadir;
-  if (language != NULL)
-    language_data_path_prefix += language;
-  else
-    language_data_path_prefix += "eng";
+  language_data_path_prefix += lang;
   language_data_path_prefix += ".";
 
-  // Load the unichar set
-  STRING unicharpath = language_data_path_prefix;
-  unicharpath += "unicharset";
-  if (!unicharset.load_from_file(unicharpath.string())) {
-    cprintf("Unable to load unicharset file %s\n", unicharpath.string());
-    exit(1);
+  // Load tesseract variables from config files.
+  for (int i = 0; i < configs_size; ++i) {
+    read_config_file(configs[i], configs_global_only);
   }
-  if (unicharset.size() > MAX_NUM_CLASSES) {
-    cprintf("Error: Size of unicharset is greater than MAX_NUM_CLASSES\n");
-    exit(1);
+
+  // Initialize TessdataManager.
+  STRING tessdata_path = language_data_path_prefix + kTrainedDataSuffix;
+  tessdata_manager.Init(tessdata_path.string());
+
+  // If a language specific config file (lang.config) exists, load it in.
+  if (tessdata_manager.SeekToStart(TESSDATA_LANG_CONFIG)) {
+    read_variables_from_fp(tessdata_manager.GetDataFilePtr(),
+                           tessdata_manager.GetEndOffset(TESSDATA_LANG_CONFIG),
+                           false);
+    if (global_tessdata_manager_debug_level) {
+      tprintf("Loaded language config file\n");
   }
 }
 
-int Tesseract::init_tesseract(const char *arg0,
-                   const char *textbase,
-                   const char *language,
-                   const char *configfile,
-                   int configc,
-                   const char *const *configv) {
-  init_tesseract_lang_data (arg0, textbase, language,
-    configfile, configc, configv);
+  // Load the unicharset
+  if (!tessdata_manager.SeekToStart(TESSDATA_UNICHARSET) ||
+      !unicharset.load_from_file(tessdata_manager.GetDataFilePtr())) {
+    return false;
+  }
+  if (unicharset.size() > MAX_NUM_CLASSES) {
+    tprintf("Error: Size of unicharset is greater than MAX_NUM_CLASSES\n");
+    return false;
+  }
+  if (global_tessdata_manager_debug_level) tprintf("Loaded unicharset\n");
 
-  start_recog(configfile, textbase);
+  if (!global_tessedit_ambigs_training &&
+      tessdata_manager.SeekToStart(TESSDATA_AMBIGS)) {
+    unichar_ambigs.LoadUnicharAmbigs(
+        tessdata_manager.GetDataFilePtr(),
+        tessdata_manager.GetEndOffset(TESSDATA_AMBIGS),
+        &unicharset);
+    if (global_tessdata_manager_debug_level) tprintf("Loaded ambigs\n");
+  }
+  return true;
+}
 
-  set_tess_tweak_vars();
-
-  if (tessedit_use_nn)           //phils nn stuff
-    init_net();
+int Tesseract::init_tesseract(
+    const char *arg0, const char *textbase, const char *language,
+    char **configs, int configs_size, bool configs_global_only) {
+  if (!init_tesseract_lang_data(arg0, textbase, language, configs,
+                                configs_size, configs_global_only)) {
+    return -1;
+  }
+  start_recog(textbase);
+  tessdata_manager.End();
   return 0;                      //Normal exit
+}
+
+// Init everything except the language model
+int Tesseract::init_tesseract_classifier(
+    const char *arg0, const char *textbase, const char *language,
+    char **configs, int configs_size, bool configs_global_only) {
+  if (!init_tesseract_lang_data (arg0, textbase, language, configs,
+                                 configs_size, configs_global_only)) {
+    return -1;
+  }
+  // Dont initialize the permuter.
+  program_editup(textbase, false);
+  tessdata_manager.End();
+  return 0;
 }
 
 // init the LM component
 int Tesseract::init_tesseract_lm(const char *arg0,
                    const char *textbase,
-                   const char *language,
-                   const char *configfile,
-                   int configc,
-                   const char *const *configv) {
-  init_tesseract_lang_data (arg0, textbase, language,
-    configfile, configc, configv);
-
+                   const char *language) {
+  init_tesseract_lang_data(arg0, textbase, language, NULL, 0, false);
   getDict().init_permute();
-
-  return 0;                      //Normal exit
+  tessdata_manager.End();
+  return 0;
 }
 
 void Tesseract::end_tesseract() {
@@ -202,38 +225,6 @@ enum CMD_EVENTS
   ACTION_2_CMD_EVENT
 };
 
-
-/*************************************************************************
- * set_tess_tweak_vars()
- * Set TESS vars from the tweek value - This is only really of use during search
- * of the space of tess configs - othertimes the default values are set
- *
- *************************************************************************/
-void Tesseract::set_tess_tweak_vars() {
-  if (tessedit_tweaking_tess_vars) {
-    segment_penalty_garbage = tweak_garbage;
-    segment_penalty_dict_punc_bad = tweak_ok_word;
-    segment_penalty_dict_punc_ok = tweak_good_word;
-    segment_penalty_dict_frequent_word = tweak_freq_word;
-    segment_penalty_number_ok = tweak_ok_number;
-    segment_penalty_number_good = tweak_good_number;
-    segment_penalty_dict_nonword = tweak_non_word;
-    stopper_certainty_per_char = tweak_CertaintyPerChar;
-    stopper_nondict_certainty_base = tweak_NonDictCertainty;
-    stopper_phase2_certainty_rejection_offset = tweak_RejectCertaintyOffset;
-    matcher_good_threshold = tweak_GoodAdaptiveMatch;
-    matcher_great_threshold = tweak_GreatAdaptiveMatch;
-    matcher_min_examples_for_prototyping = tweak_ReliableConfigThreshold;
-    AdaptProtoThresh = tweak_AdaptProtoThresh;
-    AdaptFeatureThresh = tweak_AdaptFeatureThresh;
-    min_outline_points = tweak_min_outline_points;
-    min_outline_area = tweak_min_outline_area;
-    good_split = tweak_good_split;
-    ok_split = tweak_ok_split;
-  }
-  //   if (expiry_day * 24 * 60 * 60 < time(NULL))
-  //         err_exit();
-}
 }  // namespace tesseract
 
 #ifdef _TIFFIO_

@@ -78,7 +78,14 @@ class BLOB_CHOICE: public ELIST_LINK
       script_id_ = newscript_id;
     }
 
-    NEWDELETE private:
+    static BLOB_CHOICE* deep_copy(const BLOB_CHOICE* src) {
+      BLOB_CHOICE* choice = new BLOB_CHOICE;
+      *choice = *src;
+      return choice;
+    }
+
+    NEWDELETE
+ private:
     UNICHAR_ID unichar_id_;          // unichar id
     char config_;                    // char config (font)
     inT16 junk2_;
@@ -89,20 +96,21 @@ class BLOB_CHOICE: public ELIST_LINK
 
 // Make BLOB_CHOICE listable.
 ELISTIZEH (BLOB_CHOICE) CLISTIZEH (BLOB_CHOICE_LIST)
-/* permuter codes used in WERD_CHOICEs */
-#
-#define MIN_PERM      1
-#define NO_PERM       0
-#define TOP_CHOICE_PERM  1
-#define LOWER_CASE_PERM  2
-#define UPPER_CASE_PERM  3
-#define NUMBER_PERM      4
-#define SYSTEM_DAWG_PERM 5
-#define DOC_DAWG_PERM    6
-#define USER_DAWG_PERM   7
-#define FREQ_DAWG_PERM   8
-#define COMPOUND_PERM    9
-#define MAX_PERM      9
+
+// Permuter codes used in WERD_CHOICEs.
+enum PermuterType {
+  NO_PERM,           // 0
+  PUNC_PERM,         // 1
+  TOP_CHOICE_PERM,   // 2
+  LOWER_CASE_PERM,   // 3
+  UPPER_CASE_PERM,   // 4
+  NUMBER_PERM,       // 5
+  SYSTEM_DAWG_PERM,  // 6
+  DOC_DAWG_PERM,     // 7
+  USER_DAWG_PERM,    // 8
+  FREQ_DAWG_PERM,    // 9
+  COMPOUND_PERM,     // 10
+};
 
 class WERD_CHOICE {
  public:
@@ -113,7 +121,11 @@ class WERD_CHOICE {
               float src_rating,
               float src_certainty,
               uinT8 src_permuter,
-              const UNICHARSET &current_unicharset);
+              const UNICHARSET &unicharset) {
+    this->init(src_string, src_lengths, src_rating,
+               src_certainty, src_permuter, unicharset);
+  }
+  WERD_CHOICE (const char *src_string, const UNICHARSET &unicharset);
   WERD_CHOICE(const WERD_CHOICE &word) {
     this->init(word.length());
     this->operator=(word);
@@ -195,6 +207,15 @@ class WERD_CHOICE {
     unichar_lengths_ = "";
   }
 
+  // Helper function to build a WERD_CHOICE from the given string,
+  // fragment lengths, rating, certainty and permuter.
+  // The function assumes that src_string is not NULL.
+  // src_lengths argument could be NULL, in which case the unichars
+  // in src_string are assumed to all be of length 1.
+  void init(const char *src_string, const char *src_lengths,
+            float src_rating, float src_certainty,
+            uinT8 src_permuter, const UNICHARSET &current_unicharset);
+
   // Set the fields in this choice to be default (bad) values.
   inline void make_bad() {
     length_ = 0;
@@ -232,7 +253,9 @@ class WERD_CHOICE {
   }
 
   bool contains_unichar_id(UNICHAR_ID unichar_id) const;
-  void remove_unichar_id(int index);
+  void remove_unichar_ids(int index, int num);
+  inline void remove_last_unichar_id() { --length_; }
+  inline void remove_unichar_id(int index) { this->remove_unichar_ids(index, 1); }
   void string_and_lengths(const UNICHARSET &current_unicharset,
                           STRING *word_str, STRING *word_lengths_str) const;
   const STRING debug_string(const UNICHARSET &current_unicharset) const {
@@ -264,7 +287,8 @@ class WERD_CHOICE {
            unichar_lengths_.length() == length_);  // sanity check
     return unichar_lengths_;
   }
-  const void print() const;
+  const void print() const { this->print(""); }
+  const void print(const char *msg) const;
 
   WERD_CHOICE& operator+= (     // concatanate
     const WERD_CHOICE & second);// second on first
@@ -296,6 +320,12 @@ class WERD_CHOICE {
 
 // Make WERD_CHOICE listable.
 ELISTIZEH (WERD_CHOICE)
+typedef GenericVector<BLOB_CHOICE_LIST *> BLOB_CHOICE_LIST_VECTOR;
+typedef GenericVector<WERD_CHOICE_LIST *> WERD_CHOICE_LIST_VECTOR;
+
+typedef void (*POLY_TESTER) (const STRING&, PBLOB *, DENORM *, BOOL8,
+                             char *, inT32, BLOB_CHOICE_LIST *);
+
 void print_ratings_list(const char *msg, BLOB_CHOICE_LIST *ratings);
 void print_ratings_list(
     const char *msg,                      // intro message
@@ -309,13 +339,11 @@ void print_ratings_info(
     const UNICHARSET &current_unicharset  // unicharset that can be used
                                           // for id-to-unichar conversion
     );
-
-
-typedef GenericVector<BLOB_CHOICE_LIST *> BLOB_CHOICE_LIST_VECTOR;
-typedef GenericVector<WERD_CHOICE_LIST *> WERD_CHOICE_LIST_VECTOR;
-
-typedef void (*POLY_TESTER)
-  (const STRING&, PBLOB *, DENORM *, BOOL8, char *, inT32,
-   BLOB_CHOICE_LIST *);
+void print_char_choices_list(
+    const char *msg,
+    const BLOB_CHOICE_LIST_VECTOR &char_choices,
+    const UNICHARSET &current_unicharset,
+    BOOL8 detailed
+    );
 
 #endif

@@ -17,15 +17,11 @@
  *
  **********************************************************************/
 
-#define BLOB_MATCHING_ON
-
 #include "mfcpch.h"
 #include          "fileerr.h"
 #ifdef __UNIX__
 #include          <unistd.h>
 #include          <signal.h>
-#else
-#include          <io.h>
 #endif
 #include          <stdlib.h>
 #include          "basedir.h"
@@ -58,18 +54,14 @@ namespace tesseract {
 
 void CCUtil::main_setup(                 /*main demo program */
                 const char *argv0,       //program name
-                const char *basename,    //name of image
-                int argc,                /*argument count */
-                const char *const *argv  /*arguments */
+                const char *basename     //name of image
                ) {
-  inT32 arg;                     /*argument */
-  inT32 offset;                  //for flag
-  FILE *fp;                      /*variables file */
-  char flag[2];                  //+/-
-  STRING varfile;                /*name of file */
-
   imagebasename = basename;      /*name of image */
 
+  // TESSDATA_PREFIX Environment variable overrules everything.
+  // Compiled in -DTESSDATA_PREFIX is next.
+  // NULL goes to current directory.
+  // An actual value of argv0 is used if getpath is successful.
   if(!getenv("TESSDATA_PREFIX")) {
   #ifdef TESSDATA_PREFIX
   #define _STR(a) #a
@@ -78,45 +70,20 @@ void CCUtil::main_setup(                 /*main demo program */
   #undef _XSTR
   #undef _STR
   #else
+    if (argv0 != NULL) {
   if (getpath (argv0, datadir) < 0)
   #ifdef __UNIX__
-    CANTOPENFILE.error ("main", ABORT, "%s to get path", argv[0]);
+        CANTOPENFILE.error("main", ABORT, "%s to get path", argv0);
   #else
   NO_PATH.error ("main", DBG, NULL);
   #endif
+    } else {
+      datadir = "./";
+    }
   #endif
   } else {
     datadir = getenv("TESSDATA_PREFIX");
   }
-
-  for (arg = 0; arg < argc; arg++) {
-    if (argv[arg][0] == '+' || argv[arg][0] == '-') {
-      offset = 1;
-      flag[0] = argv[arg][0];
-    }
-    else {
-      offset = 0;
-    }
-    flag[offset] = '\0';
-    varfile = flag;
-                                 /*attempt open */
-    fp = fopen (argv[arg] + offset, "r");
-    if (fp != NULL) {
-      fclose(fp);  /*was only to test */
-    }
-    else {
-      varfile += datadir;
-      varfile += m_data_sub_dir; /*data directory */
-      varfile += VARDIR;         /*variables dir */
-    }
-                                 /*actual name */
-    varfile += argv[arg] + offset;
-    read_variables_file (varfile.string ());
-  }
-
-  if (m_print_variables)
-    print_variables(stdout);  /*print them all */
-
 
   datadir += m_data_sub_dir;     /*data directory */
 }

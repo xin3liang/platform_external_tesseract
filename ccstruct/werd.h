@@ -195,7 +195,6 @@ class WERD:public ELIST_LINK
     void print(            //print
                FILE *fp);  //file to print on
 
-#ifndef GRAPHICS_DISABLED
     void plot (                  //draw one
       ScrollView* window,             //window to draw in
                                  //uniform colour
@@ -208,7 +207,6 @@ class WERD:public ELIST_LINK
     void plot_rej_blobs (        //draw one
                                  //in rainbow colours
       ScrollView* window, BOOL8 solid = FALSE);
-#endif
 
     WERD & operator= (           //assign words
       const WERD & source);      //from this

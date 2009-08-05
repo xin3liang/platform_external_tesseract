@@ -20,6 +20,8 @@
 #ifndef TESSERACT_CCUTIL_GENERICVECTOR_H_
 #define TESSERACT_CCUTIL_GENERICVECTOR_H_
 
+#include <stdio.h>
+
 #include "callback.h"
 #include "errcode.h"
 
@@ -34,10 +36,10 @@ class GenericVector {
     this->init(other.size());
     this->operator+=(other);
   }
-  void operator+=(const GenericVector& other);
-  void operator=(const GenericVector& other);
+  GenericVector<T> &operator+=(const GenericVector& other);
+  GenericVector<T> &operator=(const GenericVector& other);
 
-  ~GenericVector();
+  virtual ~GenericVector();
 
   // Reserve some memory.
   void reserve(int size);
@@ -62,7 +64,8 @@ class GenericVector {
   }
 
   // Return the object from an index.
-  T get(int index) const;
+  T &get(int index) const;
+  T &operator[](int index) const;
 
   // Return the index of the T object.
   // This method NEEDS a compare_callback to be passed to
@@ -85,6 +88,10 @@ class GenericVector {
   // Insert t at the given index, push other elements to the right.
   void insert(T t, int index);
 
+  // Removes an element at the given index and
+  // shifts the remaining elements to the left.
+  void remove(int index);
+
   // Add a callback to be called to delete the elements when the array took
   // their ownership.
   void set_clear_callback(Callback1<T>* cb);
@@ -97,12 +104,12 @@ class GenericVector {
   // All the owned Callbacks are also deleted.
   // If you don't want the Callbacks to be deleted, before calling clear, set
   // the callback to NULL.
-  void clear();
+  virtual void clear();
 
   // Delete objects pointed to by data_[i]
   void delete_data_pointers();
 
-  // This method clear the current object, then, does a shallow copy of
+  // This method clears the current object, then, does a shallow copy of
   // its argument, and finally invalidate its argument.
   // Callbacks are moved to the current object;
   void move(GenericVector<T>* from);
@@ -125,7 +132,7 @@ class GenericVector {
     return data_new;
   }
 
- private:
+ protected:
   // We are assuming that the object generally placed in thie
   // vector are small enough that for efficiency it makes sence
   // to start with a larger initial size.
@@ -180,12 +187,12 @@ GenericVector<T>::~GenericVector() {
 // copied.
 template <typename T>
 void GenericVector<T>::reserve(int size) {
-  if (size_reserved_ > size)
+  if (size_reserved_ > size || size <= 0)
     return;
   T* new_array = new T[size];
   for (int i = 0; i < size_used_; ++i)
     new_array[i] = data_[i];
-  delete[] data_;
+  if (data_ != NULL) delete[] data_;
   data_ = new_array;
   size_reserved_ = size;
 }
@@ -204,9 +211,14 @@ void GenericVector<T>::double_the_size() {
 
 // Return the object from an index.
 template <typename T>
-T GenericVector<T>::get(int index) const {
+T &GenericVector<T>::get(int index) const {
   ASSERT_HOST(index >= 0 && index < size_used_);
   return data_[index];
+}
+
+template <typename T>
+T &GenericVector<T>::operator[](int index) const {
+ return data_[index];
 }
 
 // Return the object from an index.
@@ -229,6 +241,17 @@ void GenericVector<T>::insert(T t, int index) {
   }
   data_[index] = t;
   size_used_++;
+}
+
+// Removes an element at the given index and
+// shifts the remaining elements to the left.
+template <typename T>
+void GenericVector<T>::remove(int index) {
+  ASSERT_HOST(index >= 0 && index < size_used_);
+  for (int i = index; i < size_used_ - 1; ++i) {
+    data_[i] = data_[i+1];
+  }
+  size_used_--;
 }
 
 // Return true if the index is valindex
@@ -271,16 +294,18 @@ void GenericVector<T>::operator+=(T t) {
 }
 
 template <typename T>
-void GenericVector<T>::operator+=(const GenericVector& other) {
+GenericVector<T> &GenericVector<T>::operator+=(const GenericVector& other) {
   for (int i = 0;i < other.size(); ++i) {
     this->operator+=(other.data_[i]);
   }
+  return *this;
 }
 
 template <typename T>
-void GenericVector<T>::operator=(const GenericVector& other) {
+GenericVector<T> &GenericVector<T>::operator=(const GenericVector& other) {
   this->clear();
   this->operator+=(other);
+  return *this;
 }
 
 // Add a callback to be called to delete the elements when the array took

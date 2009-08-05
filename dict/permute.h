@@ -43,19 +43,31 @@
               V a r i a b l e s
 ----------------------------------------------------------------------*/
 extern INT_VAR_H(fragments_debug, 0, "Debug character fragments");
-
 extern BOOL_VAR_H(segment_debug, 0, "Debug the whole segmentation process");
-extern BOOL_VAR_H(segment_adjust_debug, 0, "Segmentation adjustment debug");
+extern BOOL_VAR_H(permute_debug, 0, "char permutation debug");
+
+extern BOOL_VAR_H(permute_script_word, 0,
+                  "Turn on word script consistency permuter");
+
+extern BOOL_VAR_H(segment_segcost_rating, 0,
+                  "incorporate segmentation cost in word rating?");
+
+extern double_VAR_H(segment_reward_script, 0.95,
+                    "Score multipler for script consistency within a word. "
+                    "Being a 'reward' factor, it should be <= 1. "
+                    "Smaller value implies bigger reward.");
 
 extern double_VAR_H(segment_penalty_garbage, 1.5,
                     "Score multiplier for poorly cased strings that are not "
                     "in the dictionary and generally look like garbage "
                     "(lower is better).");
+
 extern double_VAR_H(segment_penalty_dict_nonword, 1.25,
                     "Score multiplier for glyph fragment segmentations which "
                     "do not match a dictionary word (lower is better).");
 
 extern int permute_only_top;
+extern float wordseg_rating_adjust_factor;
 
 /*----------------------------------------------------------------------
               F u n c t i o n s

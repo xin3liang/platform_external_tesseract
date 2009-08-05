@@ -1,12 +1,13 @@
 LOCAL_PATH:= $(call my-dir)
 
-BUILD_FOR_HOST:=1
+BUILD_FOR_HOST:=0
 
 #
 # libocr (common)
 #
 
-local_SRC_FILES:= 		\
+LOCAL_SRC_FILES_:=		\
+	ccutil/ambigs.cpp	\
 	ccutil/basedir.cpp	\
 	ccutil/bits16.cpp	\
 	ccutil/boxread.cpp	\
@@ -15,28 +16,39 @@ local_SRC_FILES:= 		\
 	ccutil/elst.cpp		\
 	ccutil/elst2.cpp	\
 	ccutil/errcode.cpp	\
-	ccutil/tessopt.cpp	\
 	ccutil/globaloc.cpp	\
 	ccutil/hashfn.cpp	\
 	ccutil/mainblk.cpp	\
 	ccutil/memblk.cpp	\
 	ccutil/memry.cpp	\
+	ccutil/mfcpch.cpp	\
 	ccutil/ocrshell.cpp	\
+	ccutil/scanutils.cpp	\
 	ccutil/serialis.cpp	\
 	ccutil/strngs.cpp	\
-	ccutil/cprintf.cpp	\
+	ccutil/tessdatamanager.cpp	\
+	ccutil/tessopt.cpp	\
+	ccutil/tordvars.cpp	\
 	ccutil/tprintf.cpp	\
 	ccutil/unichar.cpp	\
-	ccutil/unicharset.cpp	\
 	ccutil/unicharmap.cpp	\
+	ccutil/unicharset.cpp	\
 	ccutil/varable.cpp	\
 	ccutil/ccutil.cpp
 
-local_SRC_FILES+= 		\
-	cutil/tessarray.cpp	\
+LOCAL_SRC_FILES_+=		\
+	api/baseapi.cpp
+
+LOCAL_SRC_FILES_+=		\
+	viewer/scrollview.cpp	\
+	viewer/svmnode.cpp	\
+	viewer/svutil.cpp
+#	viewer/svpaint.cpp	\
+
+LOCAL_SRC_FILES_+=		\
 	cutil/bitvec.cpp	\
+	cutil/cutil.cpp		\
 	cutil/danerror.cpp	\
-	cutil/debug.cpp		\
 	cutil/efio.cpp		\
 	cutil/emalloc.cpp	\
 	cutil/freelist.cpp	\
@@ -45,12 +57,10 @@ local_SRC_FILES+= 		\
 	cutil/oldheap.cpp	\
 	cutil/oldlist.cpp	\
 	cutil/structures.cpp	\
-	cutil/tordvars.cpp	\
-	cutil/cutil.cpp		\
-	cutil/variables.cpp	\
+	cutil/tessarray.cpp	\
 	cutil/cutil_class.cpp 
 
-local_SRC_FILES+= 		\
+LOCAL_SRC_FILES_+=		\
 	image/image.cpp		\
 	image/imgbmp.cpp	\
 	image/imgio.cpp		\
@@ -59,13 +69,148 @@ local_SRC_FILES+= 		\
 	image/bitstrm.cpp	\
 	image/svshowim.cpp
 
-local_SRC_FILES+=		\
+LOCAL_SRC_FILES_+=		\
+	liblept/adaptmap.c	\
+	liblept/affine.c	\
+	liblept/affinecompose.c	\
+	liblept/arithlow.c	\
+	liblept/arrayaccess.c	\
+	liblept/bardecode.c	\
+	liblept/baseline.c	\
+	liblept/bbuffer.c	\
+	liblept/bilinear.c	\
+	liblept/binarize.c	\
+	liblept/binexpand.c	\
+	liblept/binexpandlow.c	\
+	liblept/binreduce.c	\
+	liblept/binreducelow.c	\
+	liblept/blend.c		\
+	liblept/bmf.c		\
+	liblept/bmpio.c		\
+	liblept/bmpiostub.c	\
+	liblept/boxbasic.c	\
+	liblept/boxfunc1.c	\
+	liblept/boxfunc2.c	\
+	liblept/boxfunc3.c	\
+	liblept/ccbord.c	\
+	liblept/ccthin.c	\
+	liblept/classapp.c	\
+	liblept/colorcontent.c	\
+	liblept/colormap.c	\
+	liblept/colormorph.c	\
+	liblept/colorquant1.c	\
+	liblept/colorquant2.c	\
+	liblept/colorseg.c	\
+	liblept/compare.c	\
+	liblept/conncomp.c	\
+	liblept/convolve.c	\
+	liblept/convolvelow.c	\
+	liblept/correlscore.c	\
+	liblept/dwacomb.2.c	\
+	liblept/dwacomblow.2.c	\
+	liblept/edge.c		\
+	liblept/endiantest.c	\
+	liblept/enhance.c	\
+	liblept/fhmtauto.c	\
+	liblept/fhmtgen.1.c	\
+	liblept/fhmtgenlow.1.c	\
+	liblept/flipdetect.c	\
+	liblept/fliphmtgen.c	\
+	liblept/fmorphauto.c	\
+	liblept/fmorphgen.1.c	\
+	liblept/fmorphgenlow.1.c	\
+	liblept/fpix1.c		\
+	liblept/fpix2.c		\
+	liblept/gifio.c		\
+	liblept/gifiostub.c	\
+	liblept/gplot.c		\
+	liblept/graphics.c	\
+	liblept/graymorph.c	\
+	liblept/graymorphlow.c	\
+	liblept/grayquant.c	\
+	liblept/grayquantlow.c	\
+	liblept/heap.c		\
+	liblept/jbclass.c	\
+	liblept/jpegio.c	\
+	liblept/jpegiostub.c	\
+	liblept/kernel.c	\
+	liblept/list.c		\
+	liblept/maze.c		\
+	liblept/morphapp.c	\
+	liblept/morph.c		\
+	liblept/morphdwa.c	\
+	liblept/morphseq.c	\
+	liblept/numabasic.c	\
+	liblept/numafunc1.c	\
+	liblept/numafunc2.c	\
+	liblept/pageseg.c	\
+	liblept/paintcmap.c	\
+	liblept/parseprotos.c	\
+	liblept/partition.c	\
+	liblept/pix1.c		\
+	liblept/pix2.c		\
+	liblept/pix3.c		\
+	liblept/pix4.c		\
+	liblept/pixabasic.c	\
+	liblept/pixacc.c	\
+	liblept/pixafunc1.c	\
+	liblept/pixafunc2.c	\
+	liblept/pixalloc.c	\
+	liblept/pixarith.c	\
+	liblept/pixconv.c	\
+	liblept/pixtiling.c	\
+	liblept/pngio.c		\
+	liblept/pngiostub.c	\
+	liblept/pnmio.c		\
+	liblept/pnmiostub.c	\
+	liblept/projective.c	\
+	liblept/psio.c		\
+	liblept/psiostub.c	\
+	liblept/ptra.c		\
+	liblept/pts.c		\
+	liblept/queue.c		\
+	liblept/rank.c		\
+	liblept/readbarcode.c	\
+	liblept/readfile.c	\
+	liblept/rop.c		\
+	liblept/ropiplow.c	\
+	liblept/roplow.c	\
+	liblept/rotateam.c	\
+	liblept/rotateamlow.c	\
+	liblept/rotate.c	\
+	liblept/rotateorth.c	\
+	liblept/rotateorthlow.c	\
+	liblept/rotateshear.c	\
+	liblept/runlength.c	\
+	liblept/sarray.c	\
+	liblept/scale.c		\
+	liblept/scalelow.c	\
+	liblept/seedfill.c	\
+	liblept/seedfilllow.c	\
+	liblept/sel1.c		\
+	liblept/sel2.c		\
+	liblept/selgen.c	\
+	liblept/shear.c		\
+	liblept/skew.c		\
+	liblept/stack.c		\
+	liblept/textops.c	\
+	liblept/tiffio.c	\
+	liblept/tiffiostub.c	\
+	liblept/utils.c		\
+	liblept/viewfiles.c	\
+	liblept/warper.c	\
+	liblept/watershed.c	\
+	liblept/writefile.c	\
+	liblept/zlibmem.c	\
+	liblept/zlibmemstub.c	\
+
+LOCAL_SRC_FILES_+=		\
 	ccstruct/blobbox.cpp	\
 	ccstruct/blobs.cpp	\
 	ccstruct/blread.cpp	\
 	ccstruct/callcpp.cpp	\
-	ccstruct/ccstruct.cpp	\
 	ccstruct/coutln.cpp	\
+	ccstruct/detlinefit.cpp	\
 	ccstruct/genblob.cpp	\
 	ccstruct/labls.cpp	\
 	ccstruct/linlsq.cpp	\
@@ -74,7 +219,7 @@ local_SRC_FILES+=		\
 	ccstruct/normalis.cpp	\
 	ccstruct/ocrblock.cpp	\
 	ccstruct/ocrrow.cpp	\
-	ccstruct/pageblk.cpp	\
+	ccstruct/otsuthr.cpp	\
 	ccstruct/pageres.cpp	\
 	ccstruct/pdblock.cpp	\
 	ccstruct/points.cpp	\
@@ -89,17 +234,13 @@ local_SRC_FILES+=		\
 	ccstruct/ratngs.cpp	\
 	ccstruct/rect.cpp	\
 	ccstruct/rejctmap.cpp	\
-	ccstruct/rwpoly.cpp	\
 	ccstruct/statistc.cpp	\
 	ccstruct/stepblob.cpp	\
-	ccstruct/txtregn.cpp	\
 	ccstruct/vecfuncs.cpp	\
-	ccstruct/werd.cpp
+	ccstruct/werd.cpp	\
+	ccstruct/ccstruct.cpp
 
-local_SRC_FILES+= 		\
-	pageseg/pageseg.cpp
-
-local_SRC_FILES+= 		\
+LOCAL_SRC_FILES_+=		\
 	dict/choices.cpp	\
 	dict/context.cpp	\
 	dict/conversion.cpp	\
@@ -107,17 +248,13 @@ local_SRC_FILES+= 		\
 	dict/dict.cpp		\
 	dict/hyphen.cpp		\
 	dict/permdawg.cpp	\
-	dict/permnum.cpp	\
 	dict/permngram.cpp	\
 	dict/permute.cpp	\
 	dict/states.cpp		\
 	dict/stopper.cpp	\
-	dict/reduce.cpp		\
-	dict/makedawg.cpp	\
-	dict/lookdawg.cpp	\
 	dict/trie.cpp
 
-local_SRC_FILES+= 		\
+LOCAL_SRC_FILES_+=		\
 	classify/adaptive.cpp	\
 	classify/adaptmatch.cpp	\
 	classify/baseline.cpp	\
@@ -148,18 +285,16 @@ local_SRC_FILES+= 		\
 	classify/outfeat.cpp	\
 	classify/picofeat.cpp	\
 	classify/protos.cpp	\
-	classify/sigmenu.cpp	\
 	classify/speckle.cpp	\
 	classify/xform2d.cpp
 
-local_SRC_FILES+= 		\
+LOCAL_SRC_FILES_+=		\
 	wordrec/associate.cpp	\
 	wordrec/badwords.cpp	\
 	wordrec/bestfirst.cpp	\
 	wordrec/chop.cpp	\
 	wordrec/chopper.cpp	\
 	wordrec/closed.cpp	\
-	wordrec/djmenus.cpp	\
 	wordrec/drawfx.cpp	\
 	wordrec/findseam.cpp	\
 	wordrec/gradechop.cpp	\
@@ -169,10 +304,11 @@ local_SRC_FILES+= 		\
 	wordrec/matrix.cpp	\
 	wordrec/metrics.cpp	\
 	wordrec/mfvars.cpp	\
-	wordrec/msmenus.cpp	\
 	wordrec/olutil.cpp	\
 	wordrec/outlines.cpp	\
 	wordrec/pieces.cpp	\
+	wordrec/plotedges.cpp	\
+	wordrec/plotseg.cpp	\
 	wordrec/render.cpp	\
 	wordrec/seam.cpp	\
 	wordrec/split.cpp	\
@@ -181,13 +317,9 @@ local_SRC_FILES+= 		\
 	wordrec/tface.cpp	\
 	wordrec/wordclass.cpp	\
 	wordrec/wordrec.cpp
-#	wordrec/plotedges.cpp
-#	wordrec/plotseg.cpp
 
-local_SRC_FILES+= 		\
-	ccmain/tessvars.cpp
-
-local_SRC_FILES+= 		\
+LOCAL_SRC_FILES_+=		\
+	ccmain/tessvars.cpp	\
 	ccmain/tstruct.cpp 	\
 	ccmain/reject.cpp 	\
 	ccmain/callnet.cpp	\
@@ -195,8 +327,8 @@ local_SRC_FILES+= 		\
 	ccmain/docqual.cpp	\
 	ccmain/paircmp.cpp	\
 	ccmain/adaptions.cpp	\
+	ccmain/ambigsrecog.cpp	\
 	ccmain/applybox.cpp	\
-	ccmain/baseapi.cpp	\
 	ccmain/blobcmp.cpp	\
 	ccmain/charsample.cpp	\
 	ccmain/control.cpp	\
@@ -207,58 +339,80 @@ local_SRC_FILES+= 		\
 	ccmain/matmatch.cpp	\
 	ccmain/osdetect.cpp	\
 	ccmain/output.cpp	\
-	ccmain/otsuthr.cpp	\
 	ccmain/pagewalk.cpp	\
+	ccmain/pgedit.cpp	\
 	ccmain/scaleimg.cpp	\
 	ccmain/tessbox.cpp	\
 	ccmain/tesseractclass.cpp	\
-	ccmain/thresholder.cpp	\
 	ccmain/tfacepp.cpp	\
+	ccmain/thresholder.cpp	\
 	ccmain/varabled.cpp	\
 	ccmain/werdit.cpp	\
-	ccmain/tessedit.cpp	\
-#	ccmain/pgedit.cpp
+	ccmain/tessedit.cpp
+#	ccmain/tessembedded.cpp	\
 
-local_SRC_FILES+= \
+LOCAL_SRC_FILES_+=		\
+	textord/alignedblob.cpp	\
+	textord/bbgrid.cpp	\
 	textord/blkocc.cpp	\
+	textord/colfind.cpp	\
+	textord/colpartition.cpp	\
+	textord/colpartitionset.cpp	\
+	textord/drawedg.cpp	\
+	textord/drawtord.cpp	\
        	textord/edgblob.cpp	\
 	textord/edgloop.cpp	\
 	textord/fpchop.cpp	\
 	textord/gap_map.cpp	\
+	textord/imagefind.cpp	\
+	textord/linefind.cpp	\
 	textord/makerow.cpp	\
 	textord/oldbasel.cpp	\
+	textord/pagesegmain.cpp	\
 	textord/pithsync.cpp	\
 	textord/pitsync1.cpp	\
 	textord/scanedg.cpp	\
 	textord/sortflts.cpp	\
+	textord/strokewidth.cpp	\
+	textord/tabfind.cpp	\
+	textord/tablefind.cpp	\
+	textord/tabvector.cpp	\
 	textord/topitch.cpp	\
 	textord/tordmain.cpp	\
 	textord/tospace.cpp	\
 	textord/tovars.cpp	\
 	textord/underlin.cpp	\
 	textord/wordseg.cpp     \
-	textord/pagesegmain.cpp
-#	textord/drawtord.cpp
-#	textord/drawedg.cpp	
+	textord/workingpartset.cpp
 
-local_C_INCLUDES+= 			\
+LOCAL_C_INCLUDES_+=		\
 	$(LOCAL_PATH)/ccmain		\
+	$(LOCAL_PATH)/api	\
 	$(LOCAL_PATH)/ccstruct 		\
 	$(LOCAL_PATH)/cstruct 		\
 	$(LOCAL_PATH)/cutil		\
 	$(LOCAL_PATH)/ccutil 		\
 	$(LOCAL_PATH)/ccmain 		\
 	$(LOCAL_PATH)/image 		\
+	$(LOCAL_PATH)/include	\
+	$(LOCAL_PATH)/liblept	\
 	$(LOCAL_PATH)/dict 		\
 	$(LOCAL_PATH)/classify		\
-	$(LOCAL_PATH)/pageseg		\
+	$(LOCAL_PATH)/viewer	\
 	$(LOCAL_PATH)/wordrec		\
-	$(LOCAL_PATH)/textord
+	$(LOCAL_PATH)/textord	\
+	external/jpeg
 
-local_CFLAGS:=-DGRAPHICS_DISABLED
-local_CFLAGS+=-DFST_DISABLED
-local_CFLAGS+=-DDISABLE_DOC_DICT
-local_CFLAGS+=-DDISABLE_INTEGER_MATCHING
+LOCAL_CFLAGS_:=			\
+	-DGRAPHICS_DISABLED	\
+	-DHAVE_LIBLEPT          \
+        -O3
+#	-DFST_DISABLED		\
+#	-DDISABLE_INTEGER_MATCHING	\
+#	-DDISABLE_DOC_DICT	\
+
+LOCAL_STATIC_LIBRARIES_:=	\
+	libjpeg
 
 #
 # libocr (native)
@@ -266,9 +420,15 @@ local_CFLAGS+=-DDISABLE_INTEGER_MATCHING
 
 include $(CLEAR_VARS)
 
-LOCAL_SRC_FILES:=$(local_SRC_FILES) ccmain/jni.cpp
-LOCAL_C_INCLUDES:=$(local_C_INCLUDES)
-LOCAL_CFLAGS:=$(local_CFLAGS)
+LOCAL_SRC_FILES:=$(LOCAL_SRC_FILES_) 	\
+	api/jni.cpp			\
+	liblept/_open_memstream.c	\
+	liblept/_fopencookie.c		\
+	liblept/_fmemopen.c
+
+LOCAL_C_INCLUDES:=$(LOCAL_C_INCLUDES_)
+LOCAL_CFLAGS:=$(LOCAL_CFLAGS_)
+LOCAL_STATIC_LIBRARIES:=$(LOCAL_STATIC_LIBRARIES_)
 
 LOCAL_SHARED_LIBRARIES:= \
 	liblog
@@ -278,6 +438,7 @@ LOCAL_MODULE_TAGS := tests
 LOCAL_MODULE:= libocr
 
 LOCAL_PRELINK_MODULE:= false
+
 include $(BUILD_SHARED_LIBRARY)
 
 ifeq ($(BUILD_FOR_HOST),1)
@@ -288,9 +449,11 @@ ifeq ($(BUILD_FOR_HOST),1)
 
 include $(CLEAR_VARS)
 
-LOCAL_SRC_FILES:=$(local_SRC_FILES)
-LOCAL_C_INCLUDES:=$(local_C_INCLUDES)
-LOCAL_CFLAGS:=$(local_CFLAGS)
+LOCAL_SRC_FILES:=$(LOCAL_SRC_FILES_) api/jni.cpp
+LOCAL_C_INCLUDES:=$(LOCAL_C_INCLUDES_)
+LOCAL_CFLAGS:=$(LOCAL_CFLAGS_)
+LOCAL_STATIC_LIBRARIES:=$(LOCAL_STATIC_LIBRARIES_)
+LOCAL_SHARED_LIBRARIES:=$(LOCAL_SHARED_LIBRARIES_)
 
 LOCAL_MODULE:= libocr
 
@@ -305,21 +468,26 @@ include $(CLEAR_VARS)
 LOCAL_MODULE:= tesseract
 
 LOCAL_SRC_FILES:= \
-	ccmain/tesseractmain.cpp
+	api/tesseractmain.cpp
 
 LOCAL_CFLAGS:= \
 	-DGRAPHICS_DISABLED	\
-	-DFST_DISABLED
+	-DHAVE_LIBLEPT		\
+	-DFST_DISABLED		\
+	-DBUILD_HOST
 
 LOCAL_C_INCLUDES+= \
 	$(LOCAL_PATH)/ccutil		\
 	$(LOCAL_PATH)/ccstruct	\
 	$(LOCAL_PATH)/image		\
+	$(LOCAL_PATH)/include	\
 	$(LOCAL_PATH)/dict		\
 	$(LOCAL_PATH)/classify	\
 	$(LOCAL_PATH)/wordrec	\
+	$(LOCAL_PATH)/viewer	\
 	$(LOCAL_PATH)/cutil		\
 	$(LOCAL_PATH)/textord	\
+	$(LOCAL_PATH)/api	\
 	$(LOCAL_PATH)/ccmain
 
 LOCAL_SHARED_LIBRARIES:= \
@@ -340,17 +508,23 @@ LOCAL_SRC_FILES:= \
 
 LOCAL_CFLAGS:= \
 	-DGRAPHICS_DISABLED	\
-	-DFST_DISABLED
+	-DHAVE_LIBLEPT		\
+	-DFST_DISABLED		\
+	-DBUILD_HOST
 
 LOCAL_C_INCLUDES+= \
 	$(LOCAL_PATH)/ccutil		\
 	$(LOCAL_PATH)/ccstruct	\
 	$(LOCAL_PATH)/image		\
+	$(LOCAL_PATH)/include	\
+	$(LOCAL_PATH)/liblept   \
 	$(LOCAL_PATH)/dict		\
 	$(LOCAL_PATH)/classify	\
 	$(LOCAL_PATH)/wordrec	\
+	$(LOCAL_PATH)/viewer	\
 	$(LOCAL_PATH)/cutil		\
 	$(LOCAL_PATH)/textord	\
+	$(LOCAL_PATH)/api	\
 	$(LOCAL_PATH)/ccmain
 
 LOCAL_SHARED_LIBRARIES:= \
@@ -360,136 +534,3 @@ include $(BUILD_HOST_EXECUTABLE)
 
 endif #BUILD_FOR_HOST
 
-#
-# libhelium (common)
-#
-
-local_SRC_FILES:= \
-	helium/binarize.cpp \
-	helium/cluster.cpp \
-	helium/clusterer.cpp \
-	helium/color.cpp \
-	helium/cstringutils.cpp \
-	helium/contourdetector.cpp \
-	helium/debugging.cpp \
-	helium/edgedetector.cpp \
-	helium/gaussiansmooth.cpp \
-	helium/heliumbinarizer.cpp \
-	helium/histogram.cpp \
-	helium/image.cpp \
-	helium/mask.cpp \
-	helium/maxtracer.cpp \
-	helium/mathfunctions.cpp \
-	helium/perspectivedetection.cpp \
-	helium/point.cpp \
-	helium/quicksmooth.cpp \
-	helium/refcount.cpp \
-	helium/shape.cpp \
-	helium/shapetree.cpp \
-	helium/sobeledgedetector.cpp \
-	helium/laplaceedgedetector.cpp \
-	helium/surface.cpp \
-	helium/stringutils.cpp \
-	helium/tesseract.cpp \
-	helium/textareas.cpp \
-	helium/textclassifier.cpp \
-	helium/textvalidator.cpp \
-	helium/textrecognition.cpp \
-	helium/thresholdbinarizer.cpp \
-	helium/trace.cpp \
-	helium/tracer.cpp \
-	helium/unionfind.cpp \
-	helium/heliumtextdetector.cpp \
-	helium/box.cpp \
-	helium/imageenhancer.cpp 
-
-local_C_INCLUDES:= \
-	$(LOCAL_PATH)		\
-	$(LOCAL_PATH)/ccmain         \
-	$(LOCAL_PATH)/helium		\
-	$(LOCAL_PATH)/ccutil		\
-	$(LOCAL_PATH)/ccstruct	\
-	$(LOCAL_PATH)/image		\
-	$(LOCAL_PATH)/dict		\
-	$(LOCAL_PATH)/classify	\
-	$(LOCAL_PATH)/wordrec	\
-	$(LOCAL_PATH)/cutil		\
-	$(LOCAL_PATH)/textord	\
-
-local_CFLAGS:= \
-	-DGRAPHICS_DISABLED	\
-	-DFST_DISABLED
-
-#
-# libhelium (native)
-#
-
-include $(CLEAR_VARS)
-
-LOCAL_SRC_FILES:=$(local_SRC_FILES)
-LOCAL_CFLAGS:=$(local_CFLAGS)
-LOCAL_C_INCLUDES:=$(local_C_INCLUDES)
-
-LOCAL_MODULE_TAGS := tests
-
-LOCAL_MODULE:= libhelium
-
-LOCAL_SHARED_LIBRARIES:= \
-	libocr
-
-LOCAL_PRELINK_MODULE:= false
-include $(BUILD_SHARED_LIBRARY)
-#include $(BUILD_STATIC_LIBRARY)
-
-ifeq ($(BUILD_FOR_HOST),1)
-
-#
-# libhelium (host)
-#
-
-include $(CLEAR_VARS)
-
-LOCAL_SRC_FILES:=$(local_SRC_FILES)
-LOCAL_CFLAGS:=$(local_CFLAGS)
-LOCAL_C_INCLUDES:=$(local_C_INCLUDES)
-
-LOCAL_MODULE:= libhelium
-
-LOCAL_SHARED_LIBRARIES:= \
-	libocr
-
-include $(BUILD_HOST_SHARED_LIBRARY)
-
-#
-# helium executable 
-#
-
-include $(CLEAR_VARS)
-
-LOCAL_MODULE:= heliumtest
-
-LOCAL_SRC_FILES:= \
-	helium/test.cpp
-
-LOCAL_CFLAGS:= 				\
-	-DGRAPHICS_DISABLED		\
-	-DFST_DISABLED
-
-LOCAL_C_INCLUDES+= 			\
-	$(LOCAL_PATH)			\
-	$(LOCAL_PATH)/ccutil	\
-	$(LOCAL_PATH)/ccstruct	\
-	$(LOCAL_PATH)/image		\
-	$(LOCAL_PATH)/dict		\
-	$(LOCAL_PATH)/classify	\
-	$(LOCAL_PATH)/wordrec	\
-	$(LOCAL_PATH)/cutil		\
-	$(LOCAL_PATH)/textord	\
-	$(LOCAL_PATH)/ccmain
-
-LOCAL_SHARED_LIBRARIES:= \
-	libhelium \
-	libocr
-
-include $(BUILD_HOST_EXECUTABLE)
-endif # BUILD_FOR_HOST

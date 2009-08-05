@@ -7,18 +7,18 @@
 # ----------------------------------------
 
 AC_PREREQ(2.50)
-AC_INIT(tesseract, 2.03, theraysmith@gmail.com)
+AC_INIT(tesseract, 3.00, theraysmith@gmail.com)
 AC_REVISION($Id: configure.ac,v 1.4 2007/02/02 22:38:17 theraysmith Exp $)
 AC_CONFIG_AUX_DIR(config)
-AC_CONFIG_SRCDIR(ccmain/tesseractmain.cpp)
+AC_CONFIG_SRCDIR(api/tesseractmain.cpp)
 AC_PREFIX_DEFAULT(/usr/local)
 AC_CANONICAL_HOST
 
 # Define date of package, etc. Could be useful in auto-generated
 # documentation.
 # TODO(luc) Generate good documentation using doxygen or equivalent
-PACKAGE_YEAR=2008
-PACKAGE_DATE="04/22"
+PACKAGE_YEAR=2009
+PACKAGE_DATE="05/29"
 
 AC_DEFINE_UNQUOTED(PACKAGE_NAME,["${PACKAGE_NAME}"],[Name of package])
 AC_DEFINE_UNQUOTED(PACKAGE_VERSION,["${PACKAGE_VERSION}"],[Version number])
@@ -218,22 +218,6 @@ AC_CHECK_LIB(png,png_read_png)
 AC_CHECK_LIB(jpeg,jpeg_read_scanlines)
 AC_CHECK_LIB(pthread,sem_init)
 
-# Check location of leptonica/liblept headers.
-have_lept=no
-for incd in /usr/local/include /usr/include
-do
-  for lept in . leptonica liblept
-  do
-    if test -r "$incd/$lept/allheaders.h" ; then
-      CPPFLAGS="$CPPFLAGS -I$incd/$lept"
-      have_lept=yes
-    fi
-  done
-done
-if test "$have_lept" = yes ; then
-AC_CHECK_LIB(lept,pixCreate)
-fi
-
 # ----------------------------------------
 # Checks for header files.
 # ----------------------------------------
@@ -291,6 +275,22 @@ AC_PATH_LIBTIFF(,
 [ no_libtiff=yes
   AC_MSG_WARN([TIFF support is disabled]) ])
 
+# Check location of leptonica/liblept headers.
+have_lept=no
+for incd in /usr/local/include /usr/include
+do
+  for lept in . leptonica liblept
+  do
+    if test -r "$incd/$lept/allheaders.h" ; then
+      CPPFLAGS="$CPPFLAGS -I$incd/$lept"
+      have_lept=yes
+    fi
+  done
+done
+if test "$have_lept" = yes ; then
+AC_CHECK_LIB(lept,pixCreate)
+fi
+
 
 # ----------------------------------------
 # Final Tasks and Output
@@ -303,13 +303,13 @@ AC_PATH_LIBTIFF(,
 
 # Output files
 AC_CONFIG_FILES(Makefile)
+AC_CONFIG_FILES(api/Makefile)
 AC_CONFIG_FILES(ccmain/Makefile)
 AC_CONFIG_FILES(ccstruct/Makefile)
 AC_CONFIG_FILES(ccutil/Makefile)
 AC_CONFIG_FILES(classify/Makefile)
 AC_CONFIG_FILES(cutil/Makefile)
 AC_CONFIG_FILES(dict/Makefile)
-AC_CONFIG_FILES(pageseg/Makefile)
 AC_CONFIG_FILES(image/Makefile)
 AC_CONFIG_FILES(textord/Makefile)
 AC_CONFIG_FILES(viewer/Makefile)
@@ -319,7 +319,12 @@ AC_CONFIG_FILES(tessdata/Makefile)
 AC_CONFIG_FILES(tessdata/configs/Makefile)
 AC_CONFIG_FILES(tessdata/tessconfigs/Makefile)
 AC_CONFIG_FILES(testing/Makefile)
-AC_CONFIG_FILES(dlltest/Makefile)
+AC_CONFIG_FILES(java/Makefile)
+AC_CONFIG_FILES(java/com/Makefile)
+AC_CONFIG_FILES(java/com/google/Makefile)
+AC_CONFIG_FILES(java/com/google/scrollview/Makefile)
+AC_CONFIG_FILES(java/com/google/scrollview/events/Makefile)
+AC_CONFIG_FILES(java/com/google/scrollview/ui/Makefile)
 # AC_CONFIG_FILES(doc/Doxyfile)
 # AC_CONFIG_FILES(doc/header.html)
 # AC_CONFIG_FILES(doc/footer.html)

@@ -42,8 +42,7 @@ extern double_VAR_H (textord_projection_scale, 0.125,
 "Ding rate for mid-cuts");
 extern double_VAR_H (textord_balance_factor, 2.0,
 "Ding rate for unbalanced char cells");
-extern double_VAR_H (textord_repch_width_variance, 0.2,
-"Max width change of gap/blob");
+
 void compute_fixed_pitch(                             //determine pitch
                          ICOORD page_tr,              //top right
                          TO_BLOCK_LIST *port_blocks,  //input list

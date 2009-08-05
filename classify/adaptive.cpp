@@ -186,7 +186,7 @@ void free_adapted_templates(ADAPT_TEMPLATES templates) {
 
   if (templates != NULL) {
     int i;
-    for (i = 0; i < NumClassesIn (templates->Templates); i++)
+    for (i = 0; i < (templates->Templates)->NumClasses; i++)
       free_adapted_class (templates->Class[i]);
     free_int_templates (templates->Templates);
     Efree(templates);
@@ -261,18 +261,19 @@ void Classify::PrintAdaptedTemplates(FILE *File, ADAPT_TEMPLATES Templates) {
   #ifndef SECURE_NAMES
   fprintf (File, "\n\nSUMMARY OF ADAPTED TEMPLATES:\n\n");
   fprintf (File, "Num classes = %d;  Num permanent classes = %d\n\n",
-    NumNonEmptyClassesIn (Templates), Templates->NumPermClasses);
+           Templates->NumNonEmptyClasses, Templates->NumPermClasses);
   fprintf (File, "   Id  NC NPC  NP NPP\n");
   fprintf (File, "------------------------\n");
 
-  for (i = 0; i < NumClassesIn (Templates->Templates); i++) {
-    IClass = ClassForClassId (Templates->Templates, i);
+  for (i = 0; i < (Templates->Templates)->NumClasses; i++) {
+    IClass = Templates->Templates->Class[i];
     AClass = Templates->Class[i];
     if (!IsEmptyAdaptedClass (AClass)) {
       fprintf (File, "%5d  %s %3d %3d %3d %3d\n",
-        i, unicharset.id_to_unichar(i), NumIntConfigsIn (IClass),
-        AClass->NumPermConfigs, NumIntProtosIn (IClass),
-        NumIntProtosIn (IClass) - count (AClass->TempProtos));
+        i, unicharset.id_to_unichar(i),
+      IClass->NumConfigs, AClass->NumPermConfigs,
+      IClass->NumProtos,
+      IClass->NumProtos - count (AClass->TempProtos));
     }
   }
   #endif
@@ -360,7 +361,7 @@ ADAPT_TEMPLATES Classify::ReadAdaptedTemplates(FILE *File) {
   Templates->Templates = ReadIntTemplates (File);
 
   /* then read in the adaptive info for each class */
-  for (i = 0; i < NumClassesIn (Templates->Templates); i++) {
+  for (i = 0; i < (Templates->Templates)->NumClasses; i++) {
     Templates->Class[i] = ReadAdaptedClass (File);
   }
   return (Templates);
@@ -491,10 +492,9 @@ void Classify::WriteAdaptedTemplates(FILE *File, ADAPT_TEMPLATES Templates) {
   WriteIntTemplates (File, Templates->Templates, unicharset);
 
   /* then write out the adaptive info for each class */
-  for (i = 0; i < NumClassesIn (Templates->Templates); i++) {
+  for (i = 0; i < (Templates->Templates)->NumClasses; i++) {
     WriteAdaptedClass (File, Templates->Class[i],
-                       NumIntConfigsIn (ClassForClassId
-                                        (Templates->Templates, i)));
+      Templates->Templates->Class[i]->NumConfigs);
   }
 }                                /* WriteAdaptedTemplates */
 }  // namespace tesseract

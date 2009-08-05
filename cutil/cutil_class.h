@@ -30,7 +30,7 @@ class CUtil : public CCUtil {
  public:
   CUtil();
   ~CUtil();
-  void read_variables(const char *filename);
+  void read_variables(const char *filename, bool global_only);
  public:
   TBLOB *pageblobs;                /*first blob on page */
   TEXTBLOCK *pageblocks;           /*first block on page */

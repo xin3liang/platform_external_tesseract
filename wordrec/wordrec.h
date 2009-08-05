@@ -24,6 +24,8 @@
 #include "matrix.h"
 #include "seam.h"
 #include "callback.h"
+#include "associate.h"
+#include "badwords.h"
 
 struct CHUNKS_RECORD;
 struct SEARCH_RECORD;
@@ -35,17 +37,18 @@ class Wordrec : public Classify {
   ~Wordrec();
   void save_summary(inT32 elapsed_time);
   /* tface.cpp ***************************************************************/
-  void program_editup(const char *configfile, const char *textbase);
+  void program_editup(const char *textbase, bool init_permute);
   BLOB_CHOICE_LIST_VECTOR *cc_recog(TWERD *tessword,
                                     WERD_CHOICE *best_choice,
                                     WERD_CHOICE *best_raw_choice,
                                     BOOL8 tester,
-                                    BOOL8 trainer);
+                                    BOOL8 trainer,
+                                    bool last_word_on_line);
   void program_editdown(inT32 elasped_time);
   void set_pass1();
   void set_pass2();
   int end_recog();
-  int start_recog(const char *configfile, const char *textbase);
+  int start_recog(const char *textbase);
   BLOB_CHOICE_LIST *call_matcher(                  //call a matcher
                     TBLOB *ptblob,    //previous
                     TBLOB *tessblob,  //blob to match
@@ -54,7 +57,6 @@ class Wordrec : public Classify {
                     TEXTROW *         //always null anyway
                    );
   /* tessinit.cpp ************************************************************/
-  void program_variables();
   void program_init();
   /* wordclass.cpp ***********************************************************/
   BLOB_CHOICE_LIST *classify_blob(TBLOB *pblob,
@@ -63,9 +65,14 @@ class Wordrec : public Classify {
                                   TEXTROW *row,
                                   const char *string,
                                   C_COL color);
+  void update_blob_classifications(TWERD *word,
+                                   const BLOB_CHOICE_LIST_VECTOR &choices);
   /* bestfirst.cpp ***********************************************************/
   BLOB_CHOICE_LIST_VECTOR *evaluate_chunks(CHUNKS_RECORD *chunks_record,
                                            SEARCH_STATE search_state);
+  void update_ratings(const BLOB_CHOICE_LIST_VECTOR &new_choices,
+                      const CHUNKS_RECORD *chunks_record,
+                      const SEARCH_STATE search_state);
   inT16 evaluate_state(CHUNKS_RECORD *chunks_record,
                        SEARCH_RECORD *the_search,
                        DANGERR *fixpt);
@@ -75,6 +82,9 @@ class Wordrec : public Classify {
                          STATE *state,
                          DANGERR *fixpt,
                          STATE *best_state);
+  void expand_node(FLOAT32 worst_priority,
+                   CHUNKS_RECORD *chunks_record,
+                   SEARCH_RECORD *the_search);
   BLOB_CHOICE_LIST_VECTOR *rebuild_current_state(
       TBLOB *blobs,
       SEAMS seam_list,
@@ -82,9 +92,12 @@ class Wordrec : public Classify {
       BLOB_CHOICE_LIST_VECTOR *char_choices,
       int fx,
       bool force_rebuild,
-      const WERD_CHOICE &best_choice);
+      const WERD_CHOICE &best_choice,
+      const MATRIX *ratings);
   BLOB_CHOICE_LIST *join_blobs_and_classify(
-      TBLOB *blobs, SEAMS seam_list, int x, int y, int fx);
+      TBLOB *blobs, SEAMS seam_list,
+      int x, int y, int fx, const MATRIX *ratings,
+      BLOB_CHOICE_LIST_VECTOR *old_choices);
 
   /* chopper.cpp *************************************************************/
   bool improve_one_blob(TWERD *word,
@@ -94,6 +107,13 @@ class Wordrec : public Classify {
                         SEAMS *seam_list,
                         DANGERR *fixpt,
                         bool split_next_to_fragment);
+  void modify_blob_choice(BLOB_CHOICE_LIST *answer,
+                          int chop_index);
+  bool chop_one_blob(TWERD *word,
+                     BLOB_CHOICE_LIST_VECTOR *char_choices,
+                     inT32 *blob_number,
+                     SEAMS *seam_list,
+                     int *right_chop_index);
   BLOB_CHOICE_LIST_VECTOR *chop_word_main(register TWERD *word,
                                           int fx,
                                           WERD_CHOICE *best_choice,
@@ -124,7 +144,6 @@ class Wordrec : public Classify {
                              bool split_next_to_fragment);
   /* mfvars.cpp **************************************************************/
   void mfeature_init();
-  void mfeature_variables();
   /* pieces.cpp **************************************************************/
   BLOB_CHOICE_LIST *classify_piece(TBLOB *pieces,
                                    SEAMS seams,
@@ -136,11 +155,27 @@ class Wordrec : public Classify {
                                      inT16 start,
                                      inT16 end);
   /* djmenus.cpp **************************************************************/
-  void dj_statistics(FILE *File);
-  void dj_cleanup();
+  // Prints out statistics gathered.
+  void dj_statistics(FILE *File) {
+    PrintAdaptiveStatistics(File);
+    PrintBadWords(File);
+  }
+  // Does clean up (should be called at the end of the program).
+  void dj_cleanup() { EndAdaptiveClassifier(); }
 
 
-
+  /* heuristic.cpp ************************************************************/
+  FLOAT32 prioritize_state(CHUNKS_RECORD *chunks_record,
+                           SEARCH_RECORD *the_search);
+  FLOAT32 width_priority(CHUNKS_RECORD *chunks_record,
+                         STATE *state,
+                         int num_joints);
+  FLOAT32 seamcut_priority(SEAMS seams,
+                           STATE *state,
+                           int num_joints);
+  FLOAT32 rating_priority(CHUNKS_RECORD *chunks_record,
+                          STATE *state,
+                          int num_joints);
 
   /* member variables *********************************************************/
   /* tface.cpp ****************************************************************/
@@ -149,7 +184,7 @@ class Wordrec : public Classify {
   POLY_TESTER tess_trainer; //current trainer
   DENORM *tess_denorm;      //current denorm
   WERD *tess_word;          //current word
-  int dict_word(const char *word);
+  int dict_word(const WERD_CHOICE &word);
 };
 
 

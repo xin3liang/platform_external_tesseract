@@ -67,6 +67,8 @@ TWERD *make_tess_word(              //convert owrd
 TBLOB *make_tess_blobs(                      //make tess blobs
                        PBLOB_LIST *bloblist  //list to convert
                       );
+TBLOB *make_rotated_tess_blob(const DENORM* denorm, PBLOB *blob,
+                              BOOL8 flatten);
 TBLOB *make_tess_blob(               //make tess blob
                       PBLOB *blob,   //blob to convert
                       BOOL8 flatten  //flatten outline structure

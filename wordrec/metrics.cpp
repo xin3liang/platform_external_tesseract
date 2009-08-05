@@ -34,7 +34,6 @@
 #include "wordclass.h"
 #include "intmatcher.h"
 #include "freelist.h"
-#include "djmenus.h"
 #include "callcpp.h"
 #include "ndminx.h"
 #include "wordrec.h"
@@ -116,7 +115,7 @@ void init_metrics() {
 
   end_metrics();
 
-  states_before_best = new_tally (MIN (100, num_seg_states));
+  states_before_best = new_tally (MIN (100, wordrec_num_seg_states));
 
   best_certainties[0] = new_tally (CERTAINTY_BUCKETS);
   best_certainties[1] = new_tally (CERTAINTY_BUCKETS);
@@ -146,10 +145,10 @@ void end_metrics() {
 void record_certainty(float certainty, int pass) {
   int bucket;
 
-  if (certainty / CERTAINTY_BUCKET_SIZE < MAXINT)
+  if (certainty / CERTAINTY_BUCKET_SIZE < MAX_INT32)
     bucket = (int) (certainty / CERTAINTY_BUCKET_SIZE);
   else
-    bucket = MAXINT;
+    bucket = MAX_INT32;
 
   inc_tally_bucket (best_certainties[pass - 1], bucket);
 }
@@ -166,13 +165,13 @@ void record_search_status(int num_states, int before_best, float closeness) {
   inc_tally_bucket(states_before_best, before_best);
 
   if (first_pass) {
-    if (num_states == num_seg_states + 1)
+    if (num_states == wordrec_num_seg_states + 1)
       states_timed_out1++;
     segmentation_states1 += num_states;
     words_segmented1++;
   }
   else {
-    if (num_states == num_seg_states + 1)
+    if (num_states == wordrec_num_seg_states + 1)
       states_timed_out2++;
     segmentation_states2 += num_states;
     words_segmented2++;
@@ -267,7 +266,6 @@ void Wordrec::save_summary(inT32 elapsed_time) {
  * doing clustering.
  **********************************************************************/
 void record_priorities(SEARCH_RECORD *the_search,
-                       STATE *old_state,
                        FLOAT32 priority_1,
                        FLOAT32 priority_2) {
   record_samples(priority_1, priority_2);

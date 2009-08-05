@@ -124,12 +124,12 @@
                   T y p e s
 ----------------------------------------------------------------------*/
 #define NIL  (LIST) 0
-typedef struct list_rec
+struct list_rec
 {
   struct list_rec *node;
   struct list_rec *next;
-} _LIST_;
-typedef _LIST_ *LIST;
+};
+typedef list_rec *LIST;
 
 /*----------------------------------------------------------------------
                   M a c r o s

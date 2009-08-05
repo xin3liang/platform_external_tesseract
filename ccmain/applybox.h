@@ -28,6 +28,7 @@
 
 extern BOOL_VAR_H (applybox_rebalance, TRUE, "Drop dead");
 extern INT_VAR_H (applybox_debug, 0, "Debug level");
+extern INT_VAR_H (applybox_page, 0, "Page number to apply boxes from");
 extern STRING_VAR_H (applybox_test_exclusions, "|",
                      "Chars ignored for testing");
 extern double_VAR_H (applybox_error_band, 0.15, "Err band as fract of xht");
@@ -56,20 +57,21 @@ BOOL8 read_next_box(int page,
 
 ROW *find_row_of_box(
                      BLOCK_LIST *block_list,  //real blocks
-                     TBOX box,                 //from boxfile
+                     const TBOX &box,               //from boxfile
                      inT16 &block_id,
                      inT16 &row_id_to_process);
 
 inT16 resegment_box(
                     ROW *row,
-                    TBOX box,
+                    TBOX &box,
                     UNICHAR_ID uch_id,
                     inT16 block_id,
                     inT16 row_id,
                     inT16 boxfile_lineno,
                     inT16 boxfile_charno,
                     inT16 *tgt_char_counts,
-                    bool learn_char_fragments);
+                    bool learn_char_fragments,
+                    bool learning);
 
 void tidy_up(
              BLOCK_LIST *block_list,  //real blocks
@@ -81,7 +83,8 @@ void tidy_up(
              UNICHAR_ID *min_uch_id,
              inT16 &min_samples,
              inT16 &final_labelled_blob_count,
-             bool learn_character_fragments);
+             bool learn_character_fragments,
+             bool learning);
 
 void report_failed_box(inT16 boxfile_lineno,
                        inT16 boxfile_charno,

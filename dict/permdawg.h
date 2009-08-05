@@ -39,11 +39,11 @@
 ----------------------------------------------------------------------*/
 extern BOOL_VAR_H(segment_dawg_debug, 0, "Debug mode for word segmentation");
 
-extern double_VAR_H(segment_penalty_dict_punc_bad, 1.3125,
+extern double_VAR_H(segment_penalty_dict_case_bad, 1.3125,
            "Default score multiplier for word matches, which may have case or "
            "punctuation issues (lower is better).");
 
-extern double_VAR_H(segment_penalty_dict_punc_ok, 1.1,
+extern double_VAR_H(segment_penalty_dict_case_ok, 1.1,
            "Score multiplier for word matches that have good case "
            "(lower is better).");
 

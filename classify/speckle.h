@@ -29,7 +29,7 @@
             Macros
 ----------------------------------------------------------------------------**/
 /* macro for getting the height of a row of text */
-#define RowHeight(R)	((is_baseline_normalized ())?			\
+#define RowHeight(R)	((classify_baseline_normalized)?			\
 			(BASELINE_SCALE):				\
 			((R)->lineheight))
 
@@ -40,24 +40,4 @@ void AddLargeSpeckleTo(BLOB_CHOICE_LIST *Choices);
 
 BOOL8 LargeSpeckle(TBLOB *Blob, TEXTROW *Row);
 
-/*
-#if defined(__STDC__) || defined(__cplusplus)
-# define        _ARGS(s) s
-#else
-# define        _ARGS(s) ()
-#endif*/
-
-/* speckle.c
-LIST AddLargeSpeckleTo
-    _ARGS((LIST Choices));
-
-void InitSpeckleVars
-    _ARGS((void));
-
-BOOL8 LargeSpeckle
-    _ARGS((BLOB *Blob,
-  TEXTROW *Row));
-
-#undef _ARGS
-*/
 #endif

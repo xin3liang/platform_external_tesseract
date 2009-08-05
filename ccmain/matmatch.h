@@ -40,12 +40,9 @@ float match1(  /* returns match score */
              IMAGE *image_w,
              IMAGE *image_n);
 void display_images(IMAGE *image_w, IMAGE *image_n, IMAGE *match_image);
-
-#ifndef GRAPHICS_DISABLED
 ScrollView* display_image(IMAGE *image,
                      const char *title,
                      inT32 x,
                      inT32 y,
                      BOOL8 wait);
-#endif//GRAPHICS_DISABLED
 #endif

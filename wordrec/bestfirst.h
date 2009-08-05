@@ -53,6 +53,7 @@ struct SEARCH_RECORD
   int num_joints;
   long num_states;
   long before_best;
+  float segcost_bias;
   WERD_CHOICE *best_choice;
   WERD_CHOICE *raw_choice;
 };
@@ -60,36 +61,18 @@ struct SEARCH_RECORD
 /*----------------------------------------------------------------------
               V a r i a b l e s
 ---------------------------------------------------------------------*/
-extern int num_seg_states;
-extern int num_popped;
+extern INT_VAR_H(wordrec_num_seg_states, 30, "Segmentation states");
 
-/*----------------------------------------------------------------------
-              M a c r o s
----------------------------------------------------------------------*/
-/**********************************************************************
- * chunks_gap
- *
- * Return the width of several of the chunks (if they were joined to-
- * gether.
- **********************************************************************/
-#define chunks_gap(chunk_widths,last_chunk)                    \
-((last_chunk < (chunk_widths)->num_chars - 1) ?  \
-	((chunk_widths)->widths[last_chunk * 2 + 1]) :  \
-	(0))
+extern double_VAR_H(wordrec_worst_state, 1, "Worst segmentation state");
+
 
 /*----------------------------------------------------------------------
               F u n c t i o n s
 ----------------------------------------------------------------------*/
-void init_bestfirst_vars();
-
-
 int chunks_width(WIDTH_RECORD *width_record, int start_chunk, int last_chunk);
+int chunks_gap(WIDTH_RECORD *width_record, int last_chunk);
 
 void delete_search(SEARCH_RECORD *the_search);
-
-void expand_node(FLOAT32 worst_priority,
-                 CHUNKS_RECORD *chunks_record,
-                 SEARCH_RECORD *the_search);
 
 SEARCH_RECORD *new_search(CHUNKS_RECORD *chunks_record,
                           int num_joints,
@@ -108,76 +91,4 @@ void replace_char_widths(CHUNKS_RECORD *chunks_record, SEARCH_STATE state);
 // returns classification of the resulting merged blob.
 BLOB_CHOICE_LIST *join_blobs_and_classify(TBLOB *blobs, SEAMS seam_list,
                                           int x, int y, int fx);
-
-/*
-#if defined(__STDC__) || defined(__cplusplus)
-# define	_ARGS(s) s
-#else
-# define	_ARGS(s) ()
-#endif*/
-
-/* bestfirst.c
-void init_bestfirst_vars
-  _ARGS((void));
-
-void best_first_search
-  _ARGS((CHUNKS_RECORD *chunks_record,
-  A_CHOICE *best_choice,
-  A_CHOICE *raw_choice,
-  STATE *state,
-  STATE*					best_state,
-  inT32					pass));
-
-CHOICES_LIST rebuild_current_state();
-
-void write_segmentation
-  _ARGS((char *correct,
-    CHUNKS_RECORD *chunks_record,
-  SEARCH_RECORD  *the_search));
-
-int chunks_width
-  _ARGS((WIDTH_RECORD *width_record,
-  int start_chunk,
-  int last_chunk));
-
-void delete_search
-  _ARGS((SEARCH_RECORD *the_search));
-
-CHOICES_LIST evaluate_chunks
-  _ARGS((CHUNKS_RECORD *chunks_record,
-  SEARCH_STATE search_state,
-  STATE*					this_state,
-  STATE*					best_state,
-  inT32					pass));
-
-inT16 evaluate_state
-  _ARGS((CHUNKS_RECORD *chunks_record,
-  SEARCH_RECORD *the_search,
-  STATE*					best_state,
-  inT32					pass));
-
-void expand_node
-  _ARGS((CHUNKS_RECORD *chunks_record,
-  SEARCH_RECORD *the_search));
-
-SEARCH_RECORD *new_search
-  _ARGS((CHUNKS_RECORD *chunks_record,
-  int num_joints,
-  A_CHOICE *best_choice,
-  A_CHOICE *raw_choice,
-  STATE *state));
-
-STATE *pop_queue
-  _ARGS((HEAP *queue));
-
-void push_queue
-  _ARGS((HEAP *queue,
-  STATE *state,
-  FLOAT32 priority));
-
-void replace_char_widths
-  _ARGS((CHUNKS_RECORD *chunks_record,
-  SEARCH_STATE state));
-#undef _ARGS
-*/
 #endif

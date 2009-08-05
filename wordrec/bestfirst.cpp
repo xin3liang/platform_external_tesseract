@@ -29,9 +29,10 @@
 #include <assert.h>
 
 #include "bestfirst.h"
+#include "baseline.h"
 #include "bitvec.h"
 #include "callback.h"
-#include "debug.h"
+#include "dict.h"
 #include "freelist.h"
 #include "globals.h"
 #include "heuristic.h"
@@ -57,26 +58,14 @@ int num_joints;                  /* Number of chunks - 1 */
 int num_pushed = 0;
 int num_popped = 0;
 
-make_int_var (num_seg_states, 30, make_seg_states,
-9, 1, set_seg_states, "Segmentation states");
+INT_VAR(wordrec_num_seg_states, 30, "Segmentation states");
 
-make_float_var (worst_state, 1, make_worst_state,
-9, 9, set_worst_state, "Worst segmentation state");
+double_VAR(wordrec_worst_state, 1, "Worst segmentation state");
+
 /**/
 /*----------------------------------------------------------------------
           F u n c t i o n s
 ----------------------------------------------------------------------*/
-/**********************************************************************
- * init_bestfirst_vars
- *
- * Create and initialize references to debug variables that control
- * operations in this file.
- **********************************************************************/
-void init_bestfirst_vars() {
-  make_seg_states();
-  make_worst_state();
-}
-
 
 /**********************************************************************
  * best_first_search
@@ -93,55 +82,89 @@ void Wordrec::best_first_search(CHUNKS_RECORD *chunks_record,
                                 STATE *best_state) {
   SEARCH_RECORD *the_search;
   inT16 keep_going;
-  STATE guided_state;
+  STATE guided_state;   // not used
 
   num_joints = chunks_record->ratings->dimension() - 1;
   the_search = new_search (chunks_record, num_joints,
     best_choice, raw_choice, state);
 
+  // The default state is initialized as the best choice.  In order to apply
+  // segmentation adjustment, or any other contextual processing in permute,
+  // we give the best choice a poor rating to force the processed raw choice
+  // to be promoted to best choice.
+  the_search->best_choice->set_rating(100000.0);
+  evaluate_state(chunks_record, the_search, fixpt);
+  if (permute_debug) {
+    tprintf("\n\n\n =========== BestFirstSearch ==============\n");
+    best_choice->print("**Initial BestChoice**");
+  }
+
 #ifndef GRAPHICS_DISABLED
   save_best_state(chunks_record);
 #endif
   start_recording();
-  FLOAT32 worst_priority = 2.0f * prioritize_state(chunks_record,
-                                                   the_search,
-                                                   best_state);
-  if (worst_priority < worst_state)
-    worst_priority = worst_state;
+  FLOAT32 worst_priority = 2.0f * prioritize_state(chunks_record, the_search);
+  if (worst_priority < wordrec_worst_state)
+    worst_priority = wordrec_worst_state;
+  if (segment_debug) {
+    print_state("BestFirstSearch", best_state, num_joints);
+  }
 
   guided_state = *state;
   do {
                                  /* Look for answer */
     if (!hash_lookup (the_search->closed_states, the_search->this_state)) {
 
-      if (blob_skip) {
+      if (tord_blob_skip) {
         free_state (the_search->this_state);
         break;
       }
 
       guided_state = *(the_search->this_state);
       keep_going = evaluate_state(chunks_record, the_search, fixpt);
-
       hash_add (the_search->closed_states, the_search->this_state);
 
       if (!keep_going ||
-      (the_search->num_states > num_seg_states) || (blob_skip)) {
+          (the_search->num_states > wordrec_num_seg_states) ||
+          (tord_blob_skip)) {
+        if (segment_debug)
+          tprintf("Breaking best_first_search on keep_going %s numstates %d\n",
+                  ((keep_going) ? "T" :"F"), the_search->num_states);
         free_state (the_search->this_state);
         break;
       }
 
+      FLOAT32 new_worst_priority = 2.0f * prioritize_state(chunks_record,
+                                                           the_search);
+      if (new_worst_priority < worst_priority) {
+        if (segment_debug)
+          tprintf("Lowering WorstPriority %f --> %f\n",
+                  worst_priority, new_worst_priority);
+        // Tighten the threshold for admitting new paths as better search
+        // candidates are found.  After lowering this threshold, we can safely
+        // popout everything that is worse than this score also.
+        worst_priority = new_worst_priority;
+      }
       expand_node(worst_priority, chunks_record, the_search);
     }
 
     free_state (the_search->this_state);
     num_popped++;
     the_search->this_state = pop_queue (the_search->open_states);
+    if (segment_debug && !the_search->this_state)
+      tprintf("No more states to evalaute after %d evals", num_popped);
   }
   while (the_search->this_state);
 
   state->part1 = the_search->best_state->part1;
   state->part2 = the_search->best_state->part2;
   stop_recording();
+  if (permute_debug) {
+    tprintf("\n\n\n =========== BestFirstSearch ==============\n");
+            // best_choice->debug_string(getDict().getUnicharset()).string());
+    best_choice->print("**Final BestChoice**");
+  }
+  // save the best_state stats
   delete_search(the_search);
 }
 }  // namespace tesseract
@@ -150,17 +173,27 @@ void Wordrec::best_first_search(CHUNKS_RECORD *chunks_record,
 /**********************************************************************
  * chunks_width
  *
- * Return the width of several of the chunks (if they were joined to-
- * gether.
+ * Return the width of a chunk which is a composed of several blobs
+ * blobs[start_blob..last_blob] inclusively,
+ * whose individual widths and gaps are record in width_record in the form
+ * width_record->num_char = n
+ * width_record->widths[2*n-1] = w0,g0,w1,g1..w(n-1),g(n-1)
  **********************************************************************/
-int chunks_width(WIDTH_RECORD *width_record, int start_chunk, int last_chunk) {
+int chunks_width(WIDTH_RECORD *width_record, int start_blob, int last_blob) {
   int result = 0;
-  int x;
-
-  for (x = start_chunk * 2; x <= last_chunk * 2; x++)
+  for (int x = start_blob * 2; x <= last_blob * 2; x++)
     result += width_record->widths[x];
-
   return (result);
+}
+
+/**********************************************************************
+ * chunks_gap
+ *
+ * Return the width of between the specified chunk and next.
+ **********************************************************************/
+int chunks_gap(WIDTH_RECORD *width_record, int last_chunk) {
+  return (last_chunk < width_record->num_chars - 1) ?
+      width_record->widths[last_chunk * 2 + 1] : 0;
 }
 
 
@@ -213,7 +246,7 @@ BLOB_CHOICE_LIST_VECTOR *Wordrec::evaluate_chunks(CHUNKS_RECORD *chunks_record,
     else
       y = x + search_state[i];
 
-    if (blob_skip) {
+    if (tord_blob_skip) {
       delete char_choices;
       return (NULL);
     }                            /* Process one square */
@@ -227,6 +260,7 @@ BLOB_CHOICE_LIST_VECTOR *Wordrec::evaluate_chunks(CHUNKS_RECORD *chunks_record,
       delete char_choices;
       return (NULL);
     }
+
     /* Add permuted ratings */
     blob_choice_it.set_to_list(blob_choices);
     last_segmentation[i - 1].certainty = blob_choice_it.data()->certainty();
@@ -242,7 +276,6 @@ BLOB_CHOICE_LIST_VECTOR *Wordrec::evaluate_chunks(CHUNKS_RECORD *chunks_record,
   }
   return (char_choices);
 }
-
 
 /**********************************************************************
  * evaluate_state
@@ -263,25 +296,32 @@ inT16 Wordrec::evaluate_state(CHUNKS_RECORD *chunks_record,
   chunk_groups = bin_to_chunks(the_search->this_state,
                                the_search->num_joints);
   bin_to_pieces (the_search->this_state, the_search->num_joints, widths);
-  LogNewSegmentation(widths);
+  getDict().LogNewSegmentation(widths);
 
   char_choices = evaluate_chunks(chunks_record, chunk_groups);
-  if (char_choices != NULL) {
+  wordseg_rating_adjust_factor = -1.0f;
+  if (char_choices != NULL && char_choices->length() > 0) {
+    // Compute the segmentation cost and include the cost in word rating.
+    // TODO(dsl): We should change the SEARCH_RECORD to store this cost
+    // from state evaluation and avoid recomputing it here.
+    prioritize_state(chunks_record, the_search);
+    wordseg_rating_adjust_factor = the_search->segcost_bias;
     getDict().permute_characters(*char_choices, rating_limit,
                                  the_search->best_choice,
                                  the_search->raw_choice);
-    if (getDict().AcceptableChoice(*char_choices, *(the_search->best_choice),
+    bool replaced = false;
+    if (getDict().AcceptableChoice(char_choices, the_search->best_choice,
                                    *(the_search->raw_choice), fixpt,
-                                   ASSOCIATOR_CALLER)) {
+                                   ASSOCIATOR_CALLER, &replaced)) {
       keep_going = FALSE;
     }
-    delete char_choices;
   }
+  wordseg_rating_adjust_factor = -1.0f;
 
 #ifndef GRAPHICS_DISABLED
-  if (display_segmentations) {
+  if (wordrec_display_segmentations) {
     display_segmentation (chunks_record->chunks, chunk_groups);
-    if (display_segmentations > 1)
+    if (wordrec_display_segmentations > 1)
       window_wait(segm_window);
   }
 #endif
@@ -295,6 +335,7 @@ inT16 Wordrec::evaluate_state(CHUNKS_RECORD *chunks_record,
   else if (char_choices != NULL)
     fixpt->index = -1;
 
+  if (char_choices != NULL) delete char_choices;
   memfree(chunk_groups);
 
   return (keep_going);
@@ -314,11 +355,12 @@ BLOB_CHOICE_LIST_VECTOR *Wordrec::rebuild_current_state(
     BLOB_CHOICE_LIST_VECTOR *old_choices,
     int fx,
     bool force_rebuild,
-    const WERD_CHOICE &best_choice) {
+    const WERD_CHOICE &best_choice,
+    const MATRIX *ratings) {
   // Initialize search_state, num_joints, x, y.
   int num_joints = array_count(seam_list);
 #ifndef GRAPHICS_DISABLED
-    if (display_segmentations) {
+    if (wordrec_display_segmentations) {
       print_state("Rebuiling state", state, num_joints);
     }
 #endif
@@ -402,14 +444,8 @@ BLOB_CHOICE_LIST_VECTOR *Wordrec::rebuild_current_state(
   BLOB_CHOICE_IT temp_it;
   int char_choices_index = char_choices->length() - 1;
   for (i = search_state[0]; i >= 0; i--) {
-    BLOB_CHOICE_LIST *current_choices = NULL;
-    // Merge blobs and reclassify characters if needed
-    if (x == y) {
-      current_choices = old_choices->get(x);
-      old_choices->set(NULL, x);
-    } else {
-      current_choices = join_blobs_and_classify(blobs, seam_list, x, y, fx);
-    }
+    BLOB_CHOICE_LIST *current_choices = join_blobs_and_classify(
+        blobs, seam_list, x, y, fx, ratings, old_choices);
     // Combine character fragments.
     if (expanded_fragment_lengths[i] > 1) {
       // Start merging character fragments.
@@ -446,15 +482,15 @@ BLOB_CHOICE_LIST_VECTOR *Wordrec::rebuild_current_state(
         }
       }
       assert(!temp_it.cycled_list());  // make sure we found the fragment
+      // Free current_choices for the fragmented character.
+      delete current_choices;
 
       // Finish composing character from fragments.
       if (fragment_pieces == 0) {
-        // Free current_choices for the fragmented character and re-use the
-        // pointer to hold the new classification of the blob that is merged
-        // from blobs from each character fragment.
-        delete current_choices;
-        current_choices =
-          join_blobs_and_classify(blobs, seam_list, x, true_y, fx);
+        // Populate current_choices with the classification of
+        // the blob merged from blobs of each character fragment.
+        current_choices = join_blobs_and_classify(blobs, seam_list, x,
+                                                  true_y, fx, ratings, NULL);
         BLOB_CHOICE *merged_choice =
           new BLOB_CHOICE(getDict().getUnicharset().unichar_to_id(unichar),
                           rating, certainty, 0, NO_PERM);
@@ -511,21 +547,39 @@ BLOB_CHOICE_LIST_VECTOR *Wordrec::rebuild_current_state(
  * each one has not already been visited.  If not add it to the priority
  * queue.
  **********************************************************************/
-void expand_node(FLOAT32 worst_priority,
-                 CHUNKS_RECORD *chunks_record, SEARCH_RECORD *the_search) {
+namespace tesseract {
+void Wordrec::expand_node(FLOAT32 worst_priority,
+                          CHUNKS_RECORD *chunks_record,
+                          SEARCH_RECORD *the_search) {
   STATE old_state;
+  int nodes_added = 0;
   int x;
-  int mask = 1 << (the_search->num_joints - 1 - 32);
+  uinT32 mask = 1 << (the_search->num_joints - 1 - 32);
 
   old_state.part1 = the_search->this_state->part1;
   old_state.part2 = the_search->this_state->part2;
 
+  // We need to expand the search more intelligently, or we get stuck
+  // with a bad starting segmentation in a long word sequence as in CJK.
+  // Expand a child node only if it is within the global bound, and no
+  // worse than 2x of its parent.
+  // TODO(dsl): There is some redudency here in recomputing the priority,
+  // and in filtering of old_merit and worst_priority.
+  the_search->this_state->part2 = old_state.part2;
   for (x = the_search->num_joints; x > 32; x--) {
     the_search->this_state->part1 = mask ^ old_state.part1;
-    if (!hash_lookup (the_search->closed_states, the_search->this_state))
+    if (!hash_lookup (the_search->closed_states, the_search->this_state)) {
+      FLOAT32 new_merit = prioritize_state(chunks_record, the_search);
+      if (segment_debug && permute_debug) {
+        cprintf ("....checking state: %8.3f ", new_merit);
+        print_state ("", the_search->this_state, num_joints);
+      }
+      if (new_merit < worst_priority) {
       push_queue (the_search->open_states, the_search->this_state,
-                  worst_priority,
-                  prioritize_state (chunks_record, the_search, &old_state));
+                    worst_priority, new_merit);
+        nodes_added++;
+      }
+    }
     mask >>= 1;
   }
 
@@ -536,15 +590,25 @@ void expand_node(FLOAT32 worst_priority,
     mask = 1 << (the_search->num_joints - 1);
   }
 
+  the_search->this_state->part1 = old_state.part1;
   while (x--) {
     the_search->this_state->part2 = mask ^ old_state.part2;
-    if (!hash_lookup (the_search->closed_states, the_search->this_state))
+    if (!hash_lookup (the_search->closed_states, the_search->this_state)) {
+      FLOAT32 new_merit = prioritize_state(chunks_record, the_search);
+      if (segment_debug && permute_debug) {
+        cprintf ("....checking state: %8.3f ", new_merit);
+        print_state ("", the_search->this_state, num_joints);
+      }
+      if (new_merit < worst_priority) {
       push_queue (the_search->open_states, the_search->this_state,
-                  worst_priority,
-                  prioritize_state (chunks_record, the_search, &old_state));
+                   worst_priority, new_merit);
+        nodes_added++;
+      }
+    }
     mask >>= 1;
   }
 }
+}  // namespace tesseract
 
 
 /**********************************************************************
@@ -561,7 +625,7 @@ SEARCH_RECORD *new_search(CHUNKS_RECORD *chunks_record,
 
   this_search = (SEARCH_RECORD *) memalloc (sizeof (SEARCH_RECORD));
 
-  this_search->open_states = MakeHeap (num_seg_states * 20);
+  this_search->open_states = MakeHeap (wordrec_num_seg_states * 20);
   this_search->closed_states = new_hash_table ();
 
   if (state)
@@ -578,6 +642,7 @@ SEARCH_RECORD *new_search(CHUNKS_RECORD *chunks_record,
   this_search->num_joints = num_joints;
   this_search->num_states = 0;
   this_search->before_best = 0;
+  this_search->segcost_bias = 0;
 
   return (this_search);
 }
@@ -594,7 +659,7 @@ STATE *pop_queue(HEAP *queue) {
 
   if (GetTopOfHeap (queue, &entry) == OK) {
 #ifndef GRAPHICS_DISABLED
-    if (display_segmentations) {
+    if (wordrec_display_segmentations) {
       cprintf ("eval state: %8.3f ", entry.Key);
       print_state ("", (STATE *) entry.Data, num_joints);
     }
@@ -616,7 +681,13 @@ void push_queue(HEAP *queue, STATE *state, FLOAT32 worst_priority,
                 FLOAT32 priority) {
   HEAPENTRY entry;
 
-  if (SizeOfHeap (queue) < MaxSizeOfHeap (queue) && priority < worst_priority) {
+  if (priority < worst_priority) {
+    if (SizeOfHeap (queue) >= MaxSizeOfHeap(queue)) {
+      if (segment_debug) tprintf("Heap is Full\n");
+      return;
+    }
+    if (segment_debug)
+      tprintf("\tpushing %d node  %f\n", num_pushed, priority);
     entry.Data = (char *) new_state (state);
     num_pushed++;
     entry.Key = priority;
@@ -654,7 +725,28 @@ void replace_char_widths(CHUNKS_RECORD *chunks_record, SEARCH_STATE state) {
 
 namespace tesseract {
 BLOB_CHOICE_LIST *Wordrec::join_blobs_and_classify(
-    TBLOB *blobs, SEAMS seam_list, int x, int y, int fx) {
+    TBLOB *blobs, SEAMS seam_list,
+    int x, int y, int fx, const MATRIX *ratings,
+    BLOB_CHOICE_LIST_VECTOR *old_choices) {
+  BLOB_CHOICE_LIST *choices = NULL;
+  // First check to see if we can look up the classificaiton
+  // in old_choices (if there is no need to merge blobs).
+  if (x == y && old_choices != NULL && ratings == NULL) {
+    choices = old_choices->get(x);
+    old_choices->set(NULL, x);
+    return choices;
+  }
+  // The ratings matrix filled in by the associator will contain the most
+  // up-to-date classification info. Thus we look up the classification there
+  // first, and only call classify_blob() if the classification is not found.
+  if (ratings != NULL) {
+    BLOB_CHOICE_LIST *choices_ptr = ratings->get(x, y);
+    if (choices_ptr != NOT_CLASSIFIED) {
+      choices = new BLOB_CHOICE_LIST();
+      choices->deep_copy(choices_ptr, &BLOB_CHOICE::deep_copy);
+    }
+  }
+  if (x != y) {
   join_pieces(blobs, seam_list, x, y);
 
   int blobindex;  // current blob
@@ -672,6 +764,11 @@ BLOB_CHOICE_LIST *Wordrec::join_blobs_and_classify(
     oldblob(next_blob);  // junk dead blobs
     blobindex++;
   }
-  return classify_blob(p_blob, blob, blob->next, NULL, "rebuild", Orange);
+    if (choices == NULL) {
+      choices = classify_blob(p_blob, blob, blob->next,
+                              NULL, "rebuild", Orange);
+    }
+  }
+  return choices;
 }
 }  // namespace tesseract

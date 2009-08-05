@@ -16,14 +16,18 @@
  ** limitations under the License.
  *
  **********************************************************************/
-/*
-define SECURE_NAMES for code versions which go to UNLV to stop tessedit
-including all the newdiff stuff (which contains lots of text indicating
-what measures we are interested in.
-*/
-/* #define SECURE_NAMES done in secnames.h when necessary*/
-
 #include "mfcpch.h"
+
+// Include automatically generated configuration file if running autoconf.
+#ifdef HAVE_CONFIG_H
+#include "config_auto.h"
+#endif
+
+#ifdef HAVE_LIBLEPT
+// Include leptonica library only if autoconf (or makefile etc) tell us to.
+#include "allheaders.h"
+#endif
+
 #include "applybox.h"
 #include <ctype.h>
 #include <string.h>
@@ -58,10 +62,17 @@ EXTERN STRING_VAR (applybox_test_exclusions, "",
                    "Chars ignored for testing");
 EXTERN double_VAR (applybox_error_band, 0.15, "Err band as fract of xht");
 
-EXTERN STRING_VAR(exposure_pattern, "exp",
+EXTERN STRING_VAR(exposure_pattern, ".exp",
                   "Exposure value follows this pattern in the image"
                   " filename. The name of the image files are expected"
                   " to be in the form [lang].[fontname].exp[num].tif");
+
+EXTERN BOOL_VAR(learn_chars_and_char_frags_mode, FALSE,
+                "Learn both character fragments (as is done in the"
+                " special low exposure mode) as well as unfragmented"
+                " characters.");
+
+extern IMAGE page_image;
 
 // The unicharset used during box training
 static UNICHARSET unicharset_boxes;
@@ -116,11 +127,10 @@ void Tesseract::apply_boxes(const STRING& fname,
   inT16 labels_ok;
   inT16 rows_ok;
   inT16 bad_blobs;
-  inT16 tgt_char_counts[MAX_NUM_CLASSES];    //No. of box samples
-  //inT16 labelled_char_counts[128];           //No. of unique labelled samples
+  inT16 *tgt_char_counts = NULL; // No. of box samples
   inT16 i;
   inT16 rebalance_count = 0;
-  UNICHAR_ID min_uch_id;
+  UNICHAR_ID min_uch_id = INVALID_UNICHAR_ID;
   inT16 min_samples;
   inT16 final_labelled_blob_count;
   bool low_exposure = false;
@@ -130,16 +140,11 @@ void Tesseract::apply_boxes(const STRING& fname,
   // Space character needed to represent NIL classification
   unicharset_boxes.unichar_insert(" ");
 
-  for (i = 0; i < MAX_NUM_CLASSES; i++)
-    tgt_char_counts[i] = 0;
-
   // Figure out whether this image file's exposure is less than 1, in which
   // case when learning we will only pay attention to character fragments.
-  const char *ptr = strstr(imagefile.string(), ".");  // skip to first dot
-  if (ptr != NULL) ptr = strstr(ptr, ".");   // skip to second dot
-  if (ptr != NULL) ptr = strstr(ptr, exposure_pattern.string());
+  const char *ptr = strstr(imagefile.string(), exposure_pattern.string());
   if (ptr != NULL &&
-      strtol(ptr += strlen(exposure_pattern.string()), NULL, 10) < 1) {
+      strtol(ptr += strlen(exposure_pattern.string()), NULL, 10) < 0) {
     low_exposure = true;
   }
 
@@ -158,10 +163,14 @@ void Tesseract::apply_boxes(const STRING& fname,
       filename.string(), errno);
   }
 
+  tgt_char_counts = new inT16[MAX_NUM_CLASSES];
+  for (i = 0; i < MAX_NUM_CLASSES; i++)
+    tgt_char_counts[i] = 0;
+
   clear_any_old_text(block_list);
   while (read_next_box(applybox_page, box_file, &box, &uch_id)) {
     box_count++;
-    if (!low_exposure) {
+    if (!low_exposure || learn_chars_and_char_frags_mode) {
       tgt_char_counts[uch_id]++;
     }
     row = find_row_of_box (block_list, box, block_id, row_id);
@@ -184,7 +193,7 @@ void Tesseract::apply_boxes(const STRING& fname,
                            unicharset_boxes.id_to_unichar(uch_id),
           "WARNING! false row break");
       box_failures += resegment_box (row, box, uch_id, block_id, row_id,
-        boxfile_lineno, boxfile_charno, tgt_char_counts, low_exposure);
+        boxfile_lineno, boxfile_charno, tgt_char_counts, low_exposure, true);
       prev_row = row;
     }
     prev_box_right = box.right ();
@@ -198,7 +207,8 @@ void Tesseract::apply_boxes(const STRING& fname,
           &min_uch_id,
           min_samples,
           final_labelled_blob_count,
-          low_exposure);
+          low_exposure,
+          true);
   tprintf ("APPLY_BOXES:\n");
   tprintf ("   Boxes read from boxfile:  %6d\n", box_count);
   tprintf ("   Initially labelled blobs: %6d in %d rows\n",
@@ -211,6 +221,65 @@ void Tesseract::apply_boxes(const STRING& fname,
     bad_blobs);
   tprintf ("                Final labelled words:     %6d\n",
     final_labelled_blob_count);
+
+  // Clean up.
+  delete[] tgt_char_counts;
+}
+
+int Tesseract::Boxes2BlockList(int box_cnt, TBOX *boxes,
+                               BLOCK_LIST *block_list,
+                               bool right2left) {
+  inT16 boxfile_lineno = 0;
+  inT16 boxfile_charno = 0;
+  TBOX box;
+  ROW *row;
+  ROW *prev_row = NULL;
+  inT16 prev_box_right = MAX_INT16;
+  inT16 prev_box_left = 0;
+  inT16 block_id;
+  inT16 row_id;
+  inT16 box_failures = 0;
+  inT16 labels_ok;
+  inT16 rows_ok;
+  inT16 bad_blobs;
+  inT16 rebalance_count = 0;
+  UNICHAR_ID min_uch_id;
+  inT16 min_samples;
+  inT16 final_labelled_blob_count;
+
+  clear_any_old_text(block_list);
+  for (int box_idx = 0; box_idx < box_cnt; box_idx++) {
+    box = boxes[box_idx];
+
+    row = find_row_of_box(block_list, box, block_id, row_id);
+    // check for a new row
+    if ((right2left && box.right () > prev_box_left) ||
+        (!right2left && box.left () < prev_box_right)) {
+      boxfile_lineno++;
+      boxfile_charno = 1;
+    }
+    else {
+      boxfile_charno++;
+    }
+
+    if (row == NULL) {
+      box_failures++;
+    }
+    else {
+      box_failures += resegment_box(row, box, 0, block_id, row_id,
+                                    boxfile_lineno, boxfile_charno,
+                                    NULL, false, false);
+      prev_row = row;
+    }
+    prev_box_right = box.right ();
+    prev_box_left = box.left ();
+  }
+
+  tidy_up(block_list, labels_ok, rows_ok, bad_blobs, NULL,
+          rebalance_count, &min_uch_id, min_samples, final_labelled_blob_count,
+          false, false);
+
+  return box_failures;
 }
 
 }  // namespace tesseract
@@ -270,7 +339,7 @@ BOOL8 read_next_box(int page,
 
 ROW *find_row_of_box(                         //
                      BLOCK_LIST *block_list,  //real blocks
-                     TBOX box,                 //from boxfile
+                     const TBOX &box,                 //from boxfile
                      inT16 &block_id,
                      inT16 &row_id_to_process) {
   BLOCK_IT block_it(block_list);
@@ -351,18 +420,19 @@ ROW *find_row_of_box(                         //
 
 inT16 resegment_box(  //
                     ROW *row,
-                    TBOX box,
+                    TBOX &box,
                     UNICHAR_ID uch_id,
                     inT16 block_id,
                     inT16 row_id,
                     inT16 boxfile_lineno,
                     inT16 boxfile_charno,
                     inT16 *tgt_char_counts,
-                    bool learn_char_fragments) {
+                    bool learn_char_fragments,
+                    bool learning) {
   WERD_LIST new_word_list;
   WERD_IT word_it;
   WERD_IT new_word_it(&new_word_list);
-  WERD *word;
+  WERD *word = NULL;
   WERD *new_word = NULL;
   BOOL8 polyg = false;
   PBLOB_IT blob_it;
@@ -384,7 +454,7 @@ inT16 resegment_box(  //
   int fragment_index;
   int new_word_it_len;
 
-  if (applybox_debug > 6) {
+  if (learning && applybox_debug > 6) {
     tprintf("\nAPPLY_BOX: in resegment_box() for %s(%d)\n",
             unicharset_boxes.id_to_unichar(uch_id), uch_id);
   }
@@ -410,13 +480,13 @@ inT16 resegment_box(  //
               if (strlen (word->text ()) > 0) {
                 if (error_count == 0) {
                   error_count = 1;
-                  if (applybox_debug > 4)
+                  if (learning && applybox_debug > 4)
                     report_failed_box (boxfile_lineno,
                       boxfile_charno,
                       box, unicharset_boxes.id_to_unichar(uch_id),
                       "FAILURE! box overlaps blob in labelled word");
                 }
-                if (applybox_debug > 4)
+                if (learning && applybox_debug > 4)
                   tprintf ("APPLY_BOXES: ALSO ignoring corrupted char"
                            " blk:%d row:%d \"%s\"\n",
                            block_id, row_id, word_it.data()->text());
@@ -425,7 +495,7 @@ inT16 resegment_box(  //
               }
               // Do not learn from fragments of characters that are broken
               // into very small pieces to avoid picking up noise.
-              if (learn_char_fragments &&
+              if ((learn_char_fragments || learn_chars_and_char_frags_mode) &&
                   ((C_OUTLINE *)outline)->area() < kMinFragmentOutlineArea) {
                 if (applybox_debug > 6) {
                   tprintf("APPLY_BOX: fragment outline area %d is too small"
@@ -445,7 +515,8 @@ inT16 resegment_box(  //
                 }
                 // When learning character fragments is enabled, we put
                 // outlines that do not overlap on x axis in separate WERDs.
-                bool start_new_word = learn_char_fragments &&
+                bool start_new_word =
+                    (learn_char_fragments || learn_chars_and_char_frags_mode) &&
                   !curr_outline_box.major_x_overlap(prev_outline_box);
                 if (new_word == NULL || start_new_word) {
                   if (new_word != NULL) {  // add prev new_word to new_word_list
@@ -453,6 +524,8 @@ inT16 resegment_box(  //
                   }
                   // Make a new word with a single blob.
                   new_word = word->shallow_copy();
+                  new_word->set_flag(W_FUZZY_NON, false);
+                  new_word->set_flag(W_FUZZY_SP, false);
                   if (polyg){
                     new_blob = new PBLOB;
                   } else {
@@ -483,14 +556,14 @@ inT16 resegment_box(  //
   // Check for failures.
   if (error_count > 0)
     return error_count;
-  if (new_word_it_len <= 0) {
+  if (learning && new_word_it_len <= 0) {
     report_failed_box(boxfile_lineno, boxfile_charno, box,
                       unicharset_boxes.id_to_unichar(uch_id),
                       "FAILURE! Couldn't find any blobs");
     return 1;  // failure
   }
 
-  if (new_word_it_len > CHAR_FRAGMENT::kMaxChunks) {
+  if (learning && new_word_it_len > CHAR_FRAGMENT::kMaxChunks) {
     tprintf("APPLY_BOXES: too many fragments (%d) for char %s\n",
             new_word_it_len, unicharset_boxes.id_to_unichar(uch_id));
     return 1;  // failure
@@ -503,6 +576,7 @@ inT16 resegment_box(  //
        new_word_it.forward()) {
     new_word = new_word_it.extract();
     if (new_word_it_len > 1) {  // deal with a fragment
+      if (learning) {
       label = CHAR_FRAGMENT::to_string(unicharset_boxes.id_to_unichar(uch_id),
                                        fragment_index, new_word_it_len);
       fragment_uch_id = register_char(label.string());
@@ -512,14 +586,25 @@ inT16 resegment_box(  //
       // to the number of char fragments actually parsed and labelled.
       // TODO(daria): find out whether this can be improved.
       tgt_char_counts[fragment_uch_id]++;
+      } else {
+        // No learning involved, Just stick a place-holder string
+        new_word->set_text("*");
+      }
       if (applybox_debug > 5) {
         tprintf("APPLY_BOX: adding char fragment %s\n", label.string());
       }
     } else {  // deal with a regular character
-      if (!learn_char_fragments) {
+      if (learning) {
+        if (!learn_char_fragments || learn_chars_and_char_frags_mode) {
         new_word->set_text(unicharset_boxes.id_to_unichar(uch_id));
-      } else {                   // not interested in non-fragmented char
-        new_word->set_text("");  // if learning fragments, so unlabel it
+        } else {
+          // not interested in non-fragmented chars if learning fragments, so
+          // unlabel it.
+          new_word->set_text("");
+        }
+      } else {
+        // No learning involved here. Just stick a place holder string
+        new_word->set_text("*");
       }
     }
     gblob_sort_list(new_word->gblob_list(), polyg);
@@ -528,6 +613,17 @@ inT16 resegment_box(  //
     word_x_centre = (new_word_box.left() + new_word_box.right()) / 2.0f;
     baseline = row->base_line(word_x_centre);
   }
+
+  // All done. Now check if the EOL, BOL flags are set correctly.
+  word_it.move_to_first();
+  for (word_it.mark_cycle_pt(); !word_it.cycled_list(); word_it.forward()) {
+    word = word_it.data();
+    word->set_flag(W_BOL, false);
+    word->set_flag(W_EOL, false);
+  }
+  word->set_flag(W_EOL, true);
+  word_it.move_to_first();
+  word_it.data()->set_flag(W_BOL, true);
   return 0;  //success
 
 #if 0
@@ -615,7 +711,8 @@ void tidy_up(                         //
              UNICHAR_ID *min_uch_id,
              inT16 &min_samples,
              inT16 &final_labelled_blob_count,
-             bool learn_character_fragments) {
+             bool learn_character_fragments,
+             bool learning) {
   BLOCK_IT block_it(block_list);
   ROW_IT row_it;
   ROW *row;
@@ -627,7 +724,7 @@ void tidy_up(                         //
   inT16 all_row_idx = 0;
   BOOL8 row_ok;
   BOOL8 rebalance_needed = FALSE;
-  inT16 labelled_char_counts[MAX_NUM_CLASSES];  // num unique labelled samples
+  inT16 *labelled_char_counts = NULL;  // num unique labelled samples
   inT16 i;
   UNICHAR_ID uch_id;
   UNICHAR_ID prev_uch_id = -1;
@@ -636,14 +733,19 @@ void tidy_up(                         //
   inT16 left;
   inT16 prev_left = -1;
 
+  labelled_char_counts = new inT16[MAX_NUM_CLASSES];
   for (i = 0; i < MAX_NUM_CLASSES; i++)
     labelled_char_counts[i] = 0;
 
   ok_char_count = 0;
   ok_row_count = 0;
   unlabelled_words = 0;
-  if ((applybox_debug > 4) && (block_it.length () != 1)) {
+  if (learning && (applybox_debug > 4) && (block_it.length () != 1)) {
+    if (block_it.length() > 1) {
     tprintf ("APPLY_BOXES: More than one block??\n");
+    } else {
+      tprintf("APPLY_BOXES: No blocks identified.\n");
+    }
   }
 
   for (block_it.mark_cycle_pt ();
@@ -661,24 +763,24 @@ void tidy_up(                         //
       for (word_it.mark_cycle_pt ();
       !word_it.cycled_list (); word_it.forward ()) {
         word = word_it.data ();
-        if (strlen (word->text ()) == 0) {
+        if (strlen (word->text ()) == 0 ||
+            unicharset_boxes.unichar_to_id(word->text()) < 0) {
           unlabelled_words++;
-          if (applybox_debug > 4 && !learn_character_fragments) {
+          if (learning && applybox_debug > 4 && !learn_character_fragments) {
             tprintf ("APPLY_BOXES: Unlabelled word blk:%d row:%d allrows:%d\n",
                      block_idx, row_idx, all_row_idx);
           }
-        }
-        else {
+        } else {
           if (word->gblob_list ()->length () != 1)
             tprintf ("APPLY_BOXES: FATALITY - MULTIBLOB Labelled word blk:%d"
                      " row:%d allrows:%d\n", block_idx, row_idx, all_row_idx);
 
           ok_char_count++;
-          labelled_char_counts[unicharset_boxes.unichar_to_id(word->text ())]++;
+          ++labelled_char_counts[unicharset_boxes.unichar_to_id(word->text())];
           row_ok = TRUE;
         }
       }
-      if ((applybox_debug > 4) && (!row_ok)) {
+      if ((applybox_debug > 6) && (!row_ok)) {
         tprintf("APPLY_BOXES: Row with no labelled words blk:%d row:%d"
                 " allrows:%d\n", block_idx, row_idx, all_row_idx);
       }
@@ -762,7 +864,7 @@ void tidy_up(                         //
     }
   }
 
-  /* Now final check - count labelled blobs */
+  /* Now final check - count labeled blobs */
   final_labelled_blob_count = 0;
   block_it.set_to_list (block_list);
   for (block_it.mark_cycle_pt ();
@@ -776,11 +878,21 @@ void tidy_up(                         //
       !word_it.cycled_list (); word_it.forward ()) {
         word = word_it.data ();
         if ((strlen (word->text ()) > 0) &&
-          (word->gblob_list ()->length () == 1))
+            (word->gblob_list()->length() == 1)) {
           final_labelled_blob_count++;
+        } else {
+          delete word_it.extract();
+        }
       }
+      // delete the row if empty
+      if (row->word_list()->empty()) {
+        delete row_it.extract();
     }
   }
+}
+
+  // Clean up.
+  delete[] labelled_char_counts;
 }
 
 
@@ -824,9 +936,8 @@ void apply_box_training(const STRING& filename, BLOCK_LIST *block_list) {
         word = word_it.data ();
         if ((strlen (word->text ()) > 0) &&
         (word->gblob_list ()->length () == 1)) {
-          /* Here is a word with a single unichar label and a single blob so train on it */
-          bln_word =
-            make_bln_copy (word, row, row->x_height (), &denorm);
+          // Here is a word with a single unichar label and a single blob so train on it.
+          bln_word = make_bln_copy(word, row, NULL, row->x_height (), &denorm);
           blob_it.set_to_list (bln_word->blob_list ());
           strncpy(unichar, word->text (), UNICHAR_LEN);
           tess_training_tester (filename,
@@ -896,9 +1007,8 @@ void Tesseract::apply_box_testing(BLOCK_LIST *block_list) {
         if ((strlen (word->text ()) == 1) &&
           !STRING (applybox_test_exclusions).contains (*word->text ())
         && (word->gblob_list ()->length () == 1)) {
-          /* Here is a word with a single char label and a single blob so test it */
-          bln_word =
-            make_bln_copy (word, row, row->x_height (), &denorm);
+          // Here is a word with a single char label and a single blob so test it.
+          bln_word = make_bln_copy(word, row, NULL, row->x_height (), &denorm);
           blob_it.set_to_list (bln_word->blob_list ());
           ch[0] = *word->text ();
           char_count++;
@@ -973,4 +1083,5 @@ void Tesseract::apply_box_testing(BLOCK_LIST *block_list) {
     char_count, correct_count, rej_count, err_count);
   #endif
 }
+
 }  // namespace tesseract

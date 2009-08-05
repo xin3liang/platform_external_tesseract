@@ -87,6 +87,7 @@ const char *format, ...          //special message
     global_abort_code = NO_ABORT_CODE;
     */
 
+  int* p = NULL;
   switch (action) {
     case DBG:
     case TESSLOG:
@@ -94,6 +95,8 @@ const char *format, ...          //special message
     case EXIT:
       //err_exit();
     case ABORT:
+      // Create a deliberate segv as the stack trace is more useful that way.
+      if (!*p)
       abort();
     default:
       BADERRACTION.error ("error", ABORT, NULL);

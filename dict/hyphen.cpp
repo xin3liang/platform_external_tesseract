@@ -1,8 +1,7 @@
 /* -*-C-*-
  ********************************************************************************
- *
  * File:        hyphen.c  (Formerly hyphen.c)
- * Description:
+ * Description: Functions for maintaining information about hyphenated words.
  * Author:       Mark Seaman, OCR Technology
  * Created:      Fri Oct 16 14:37:00 1987
  * Modified:     Thu Mar 14 11:09:43 1991 (Mark Seaman) marks@hpgrlt
@@ -22,70 +21,49 @@
  ** limitations under the License.
  *
  *********************************************************************************/
-/*----------------------------------------------------------------------
-              I n c l u d e s
-----------------------------------------------------------------------*/
-#include <math.h>
 
-#include "const.h"
+#include "dict.h"
 
-#include "callcpp.h"
-#include "hyphen.h"
-#include "tordvars.h"
+INT_VAR(hyphen_debug_level, 0, "Debug level for hyphenated words.");
 
-/*----------------------------------------------------------------------
-              V a r i a b l e s
-----------------------------------------------------------------------*/
-int last_word_on_line = 0;
-char *hyphen_string = 0;
-char *hyphen_unichar_lengths = 0;
-char *hyphen_fragment_lengths = 0;
-int *hyphen_unichar_offsets = NULL;
-float hyphen_rating = MAXFLOAT;
-NODE_REF hyphen_state = 0;
-int hyphen_char_choice_index = 0;
+namespace tesseract {
 
-/*----------------------------------------------------------------------
-              F u n c t i o n s
----------------------------------------------------------------------*/
-/**********************************************************************
- * set_hyphen_word
- *
- * If this hyphenated word choice is better than the last one then add
- * it as the new word choice.  This string can be used on the next
- * line to permute the other half of the word.
- **********************************************************************/
-void set_hyphen_word(char *word, char *unichar_lengths, int *unichar_offsets,
-                     float rating, NODE_REF state, int char_choice_index,
-                     char *fragment_lengths) {
-  int word_index = strlen(unichar_lengths) - 1;
-
-  if (display_ratings)
-    cprintf("set hyphen word = %s\n", word);
-
-  if (hyphen_rating > rating && word_index > 0) {
-    word[unichar_offsets[word_index]] = '\0';
-    unichar_lengths[word_index] = 0;
-
-    if (hyphen_string) {
-      strfree(hyphen_string);
-      strfree(hyphen_unichar_lengths);
-      strfree(hyphen_fragment_lengths);
-      Efree(hyphen_unichar_offsets);
+// Unless the previous word was the last one on the line, and the current
+// one is not (thus it is the first one on the line), erase hyphen_word_,
+// clear hyphen_active_dawgs_, hyphen_constraints_ update last_word_on_line_.
+void Dict::reset_hyphen_vars(bool last_word_on_line) {
+  if (!(last_word_on_line_ == true && last_word_on_line == false)) {
+    if (hyphen_word_ != NULL) {
+      delete hyphen_word_;
+      hyphen_word_ = NULL;
+      hyphen_active_dawgs_.clear();
+      hyphen_constraints_.clear();
     }
-    hyphen_string = strsave(word);
-    hyphen_unichar_lengths = strsave(unichar_lengths);
-    hyphen_fragment_lengths = strsave(fragment_lengths);
-    hyphen_unichar_offsets =
-      (int *)Emalloc((strlen(unichar_lengths)) * sizeof(int));
-    memcpy(hyphen_unichar_offsets, unichar_offsets,
-           (strlen(unichar_lengths)) * sizeof(int));
+  }
+  if (hyphen_debug_level) {
+    tprintf("reset_hyphen_vars: last_word_on_line %d -> %d\n",
+            last_word_on_line_, last_word_on_line);
+  }
+  last_word_on_line_ = last_word_on_line;
+    }
 
-    hyphen_state = state;
-    hyphen_rating = rating;
-
-    word[unichar_offsets[word_index]] = '-';
-    unichar_lengths[word_index] = 1;
-    hyphen_char_choice_index = char_choice_index;
+// Update hyphen_word_, and copy the given DawgInfoVectors into
+// hyphen_active_dawgs_ and hyphen_constraints_.
+void Dict::set_hyphen_word(const WERD_CHOICE &word,
+                           const DawgInfoVector &active_dawgs,
+                           const DawgInfoVector &constraints) {
+  if (hyphen_word_ == NULL) {
+    hyphen_word_ = new WERD_CHOICE();
+    hyphen_word_->make_bad();
+  }
+  if (hyphen_word_->rating() > word.rating()) {
+    *hyphen_word_ = word;
+    hyphen_word_->remove_last_unichar_id();  // last unichar id is a hyphen
+    hyphen_active_dawgs_ = active_dawgs;
+    hyphen_constraints_ = constraints;
+  }
+  if (hyphen_debug_level) {
+    hyphen_word_->print("set_hyphen_word: ");
   }
 }
+}  // namespace tesseract

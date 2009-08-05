@@ -20,14 +20,11 @@
 ----------------------------------------------------------------------------**/
 #include "intproto.h"
 #include "picofeat.h"
-#include "debug.h"
 #include "mfoutline.h"
 #include "emalloc.h"
 #include "const.h"
 #include "ndminx.h"
-#ifndef GRAPHICS_DISABLED
 #include "svmnode.h"
-#endif
 #include "adaptmatch.h"
 #include "globals.h"
 #include "classify.h"
@@ -103,12 +100,6 @@ typedef struct
 
 FILL_SPEC;
 
-enum IntmatcherDebugAction {
-  IDA_ADAPTIVE,
-  IDA_STATIC,
-  IDA_BOTH
-};
-
 
 /* constants for conversion from old inttemp format */
 #define OLD_MAX_NUM_CONFIGS      32
@@ -176,107 +167,36 @@ void RenderIntProto(void *window,
 
 int TruncateParam(FLOAT32 Param, int Min, int Max, char *Id);
 
-/*
-#if defined(__STDC__) || defined(__cplusplus)
-# define	_ARGS(s) s
-#else
-# define	_ARGS(s) ()
-#endif*/
-
-/* /users/danj/wiseowl/src/danj/microfeatures/intproto.c
-FLOAT32 BucketStart
-  _ARGS((int Bucket,
-  FLOAT32 Offset,
-  int NumBuckets));
-
-FLOAT32 BucketEnd
-  _ARGS((int Bucket,
-  FLOAT32 Offset,
-  int NumBuckets));
-
-void DoFill
-  _ARGS((FILL_SPEC *FillSpec,
-  CLASS_PRUNER Pruner,
-  uinT32 ClassMask,
-  uinT32 ClassCount,
-  uinT32 WordIndex));
-
-BOOL8 FillerDone
-  _ARGS((TABLE_FILLER *Filler));
-
-void FillPPCircularBits
-  _ARGS((uinT32 ParamTable [NUM_PP_BUCKETS ][WERDS_PER_PP_VECTOR ],
-  int Bit,
-  FLOAT32 Center,
-  FLOAT32 Spread));
-
-void FillPPLinearBits
-  _ARGS((uinT32 ParamTable [NUM_PP_BUCKETS ][WERDS_PER_PP_VECTOR ],
-  int Bit,
-  FLOAT32 Center,
-  FLOAT32 Spread));
-
-void GetCPPadsForLevel
-  _ARGS((int Level,
-  FLOAT32 *EndPad,
-  FLOAT32 *SidePad,
-  FLOAT32 *AnglePad));
-
-C_COL GetMatchColorFor
-  _ARGS((FLOAT32 Evidence));
-
-void GetNextFill
-  _ARGS((TABLE_FILLER *Filler,
-  FILL_SPEC *Fill));
-
-void InitTableFiller
-  _ARGS((FLOAT32 EndPad,
-  FLOAT32 SidePad,
-  FLOAT32 AnglePad,
-  PROTO Proto,
-  TABLE_FILLER *Filler));
-
-void RenderIntFeature
-  _ARGS((SHAPE_LIST ShapeList,
-  INT_FEATURE Feature,
-  char *Color));
-
-void RenderIntProto
-  _ARGS((SHAPE_LIST ShapeList,
-  INT_CLASS Class,
-  PROTO_ID ProtoId,
-  char *Color));
-
-int TruncateParam
-  _ARGS((FLOAT32 Param,
-  int Min,
-  int Max,
-  char *Id));
-
-#undef _ARGS
-*/
-
 /**----------------------------------------------------------------------------
         Global Data Definitions and Declarations
 ----------------------------------------------------------------------------**/
-/* control knobs */
-make_int_const (NumCPLevels, 3, MakeNumCPLevels);
-make_float_const (CPAnglePadLoose, 45.0, MakeCPAnglePadLoose);
-make_float_const (CPAnglePadMedium, 20.0, MakeCPAnglePadMedium);
-make_float_const (CPAnglePadTight, 10.0, MakeCPAnglePadTight);
-make_float_const (CPEndPadLoose, 0.5, MakeCPEndPadLoose);
-make_float_const (CPEndPadMedium, 0.5, MakeCPEndPadMedium);
-make_float_const (CPEndPadTight, 0.5, MakeCPEndPadTight);
-make_float_const (CPSidePadLoose, 2.5, MakeCPSidePadLoose);
-make_float_const (CPSidePadMedium, 1.2, MakeCPSidePadMedium);
-make_float_const (CPSidePadTight, 0.6, MakeCPSidePadTight);
-make_float_const (PPAnglePad, 45.0, MakePPAnglePad);
-make_float_const (PPEndPad, 0.5, MakePPEndPad);
-make_float_const (PPSidePad, 2.5, MakePPSidePad);
 
 /* global display lists used to display proto and feature match information*/
 ScrollView *IntMatchWindow = NULL;
-//extern int LearningDebugLevel;
+ScrollView *FeatureDisplayWindow = NULL;
+ScrollView *ProtoDisplayWindow = NULL;
+
+/**----------------------------------------------------------------------------
+        Variables
+----------------------------------------------------------------------------**/
+
+/* control knobs */
+INT_VAR(classify_num_cp_levels, 3, "Number of Class Pruner Levels");
+double_VAR(classify_cp_angle_pad_loose, 45.0,
+           "Class Pruner Angle Pad Loose");
+double_VAR(classify_cp_angle_pad_medium, 20.0,
+           "Class Pruner Angle Pad Medium");
+double_VAR(classify_cp_angle_pad_tight, 10.0,
+           "CLass Pruner Angle Pad Tight");
+double_VAR(classify_cp_end_pad_loose, 0.5, "Class Pruner End Pad Loose");
+double_VAR(classify_cp_end_pad_medium, 0.5, "Class Pruner End Pad Medium");
+double_VAR(classify_cp_end_pad_tight, 0.5, "Class Pruner End Pad Tight");
+double_VAR(classify_cp_side_pad_loose, 2.5, "Class Pruner Side Pad Loose");
+double_VAR(classify_cp_side_pad_medium, 1.2, "Class Pruner Side Pad Medium");
+double_VAR(classify_cp_side_pad_tight, 0.6, "Class Pruner Side Pad Tight");
+double_VAR(classify_pp_angle_pad, 45.0, "Proto Pruner Angle Pad");
+double_VAR(classify_pp_end_pad, 0.5, "Proto Prune End Pad");
+double_VAR(classify_pp_side_pad, 2.5, "Proto Pruner Side Pad");
 
 /**----------------------------------------------------------------------------
               Public Code
@@ -300,22 +220,22 @@ void AddIntClass(INT_TEMPLATES Templates, CLASS_ID ClassId, INT_CLASS Class) {
   uinT32 *Word;
 
   assert (LegalClassId (ClassId));
-  if (ClassId != NumClassesIn(Templates)) {
+  if (ClassId != Templates->NumClasses) {
     fprintf(stderr, "Please make sure that classes are added to templates");
     fprintf(stderr, " in increasing order of ClassIds\n");
     exit(1);
   }
   ClassForClassId (Templates, ClassId) = Class;
-  NumClassesIn (Templates)++;
+  Templates->NumClasses++;
 
-  if (NumClassesIn (Templates) > MaxNumClassesIn (Templates)) {
-    Pruner = NumClassPrunersIn (Templates);
-    NumClassPrunersIn (Templates)++;
+  if (Templates->NumClasses > MaxNumClassesIn (Templates)) {
+    Pruner = Templates->NumClassPruners++;
     Templates->ClassPruner[Pruner] =
       (CLASS_PRUNER) Emalloc (sizeof (CLASS_PRUNER_STRUCT));
 
-    for (Word = (uinT32 *) (Templates->ClassPruner[Pruner]);
-         Word < (uinT32 *) (Templates->ClassPruner[Pruner]) + WERDS_PER_CP;
+    for (Word = reinterpret_cast<uinT32*>(Templates->ClassPruner[Pruner]);
+         Word < reinterpret_cast<uinT32*>(Templates->ClassPruner[Pruner]) +
+                WERDS_PER_CP;
          *Word++ = 0);
   }
 }                                /* AddIntClass */
@@ -335,12 +255,11 @@ int AddIntConfig(INT_CLASS Class) {
  */
   int Index;
 
-  assert (NumIntConfigsIn (Class) < MAX_NUM_CONFIGS);
+  assert(Class->NumConfigs < MAX_NUM_CONFIGS);
 
-  Index = NumIntConfigsIn (Class);
-  NumIntConfigsIn (Class)++;
-  LengthForConfigId (Class, Index) = 0;
-  return (Index);
+  Index = Class->NumConfigs++;
+  Class->ConfigLengths[Index] = 0;
+  return Index;
 }                                /* AddIntConfig */
 
 
@@ -362,20 +281,18 @@ int AddIntProto(INT_CLASS Class) {
   INT_PROTO Proto;
   register uinT32 *Word;
 
-  if (NumIntProtosIn (Class) >= MAX_NUM_PROTOS)
+  if (Class->NumProtos >= MAX_NUM_PROTOS)
     return (NO_PROTO);
 
-  Index = NumIntProtosIn (Class);
-  NumIntProtosIn (Class)++;
+  Index = Class->NumProtos++;
 
-  if (NumIntProtosIn (Class) > MaxNumIntProtosIn (Class)) {
-    ProtoSetId = NumProtoSetsIn (Class);
-    NumProtoSetsIn (Class)++;
+  if (Class->NumProtos > MaxNumIntProtosIn(Class)) {
+    ProtoSetId = Class->NumProtoSets++;
 
     ProtoSet = (PROTO_SET) Emalloc (sizeof (PROTO_SET_STRUCT));
-    ProtoSetIn (Class, ProtoSetId) = ProtoSet;
-    for (Word = (uinT32 *) (ProtoPrunerFor (ProtoSet));
-         Word < (uinT32 *) (ProtoPrunerFor (ProtoSet)) + WERDS_PER_PP;
+    Class->ProtoSets[ProtoSetId] = ProtoSet;
+    for (Word = reinterpret_cast<uinT32*>(ProtoSet->ProtoPruner);
+         Word < reinterpret_cast<uinT32*>(ProtoSet->ProtoPruner) + WERDS_PER_PP;
          *Word++ = 0);
 
     /* reallocate space for the proto lengths and install in class */
@@ -385,7 +302,7 @@ int AddIntProto(INT_CLASS Class) {
   }
 
   /* initialize proto so its length is zero and it isn't in any configs */
-  LengthForProtoId (Class, Index) = 0;
+  Class->ProtoLengths[Index] = 0;
   Proto = ProtoForProtoId (Class, Index);
   for (Word = Proto->Configs;
        Word < Proto->Configs + WERDS_PER_CONFIG_VEC; *Word++ = 0);
@@ -404,7 +321,7 @@ void AddProtoToClassPruner (PROTO Proto, CLASS_ID ClassId,
  **		ClassId		class id corresponding to Proto
  **		Templates	set of templates containing class pruner
  **	Globals:
- **		NumCPLevels	number of levels used in the class pruner
+ **   classify_num_cp_levels number of levels used in the class pruner
  **	Operation: This routine adds Proto to the class pruning tables
  **		for the specified class in Templates.
  **	Return: none
@@ -426,7 +343,7 @@ void AddProtoToClassPruner (PROTO Proto, CLASS_ID ClassId,
   WordIndex = CPrunerWordIndexFor (ClassId);
   ClassMask = CPrunerMaskFor (MAX_LEVEL, ClassId);
 
-  for (Level = NumCPLevels - 1; Level >= 0; Level--) {
+  for (Level = classify_num_cp_levels - 1; Level >= 0; Level--) {
     GetCPPadsForLevel(Level, &EndPad, &SidePad, &AnglePad);
     ClassCount = CPrunerMaskFor (Level, ClassId);
     InitTableFiller(EndPad, SidePad, AnglePad, Proto, &TableFiller);
@@ -459,37 +376,42 @@ void AddProtoToProtoPruner(PROTO Proto, int ProtoId, INT_CLASS Class) {
   int Index;
   PROTO_SET ProtoSet;
 
-  if (ProtoId >= NumIntProtosIn (Class))
+  if (ProtoId >= Class->NumProtos)
     cprintf ("AddProtoToProtoPruner:assert failed: %d < %d",
-             ProtoId, NumIntProtosIn (Class));
-  assert (ProtoId < NumIntProtosIn (Class));
+            ProtoId, Class->NumProtos);
+  assert(ProtoId < Class->NumProtos);
 
   Index = IndexForProto (ProtoId);
-  ProtoSet = ProtoSetIn (Class, SetForProto (ProtoId));
+  ProtoSet = Class->ProtoSets[SetForProto (ProtoId)];
 
-  Angle = ProtoAngle (Proto);
+  Angle = Proto->Angle;
+#ifndef __MSW32__
   assert (!isnan(Angle));
+#endif
 
   FillPPCircularBits (ProtoSet->ProtoPruner[PRUNER_ANGLE], Index,
-                      Angle + ANGLE_SHIFT, PPAnglePad / 360.0);
+                      Angle + ANGLE_SHIFT, classify_pp_angle_pad / 360.0);
 
   Angle *= 2.0 * PI;
-  Length = ProtoLength (Proto);
+  Length = Proto->Length;
 
-  X = ProtoX (Proto) + X_SHIFT;
+  X = Proto->X + X_SHIFT;
   Pad = MAX (fabs (cos (Angle)) * (Length / 2.0 +
-                                   PPEndPad * GetPicoFeatureLength ()),
-             fabs (sin (Angle)) * (PPSidePad * GetPicoFeatureLength ()));
+                                   classify_pp_end_pad *
+                                   GetPicoFeatureLength ()),
+             fabs (sin (Angle)) * (classify_pp_side_pad *
+                                   GetPicoFeatureLength ()));
 
   FillPPLinearBits (ProtoSet->ProtoPruner[PRUNER_X], Index, X, Pad);
 
-  Y = ProtoY (Proto) + Y_SHIFT;
+  Y = Proto->Y + Y_SHIFT;
   Pad = MAX (fabs (sin (Angle)) * (Length / 2.0 +
-                                   PPEndPad * GetPicoFeatureLength ()),
-             fabs (cos (Angle)) * (PPSidePad * GetPicoFeatureLength ()));
+                                   classify_pp_end_pad *
+                                   GetPicoFeatureLength ()),
+             fabs (cos (Angle)) * (classify_pp_side_pad *
+                                   GetPicoFeatureLength ()));
 
   FillPPLinearBits(ProtoSet->ProtoPruner[PRUNER_Y], Index, Y, Pad);
-
 }                                /* AddProtoToProtoPruner */
 
 
@@ -512,13 +434,12 @@ int BucketFor(FLOAT32 Param, FLOAT32 Offset, int NumBuckets) {
  */
   int Bucket;
 
-  Bucket = (int) MapParam (Param, Offset, NumBuckets);
+  Bucket = static_cast<int>(MapParam(Param, Offset, NumBuckets));
   if (Bucket < 0)
     Bucket = 0;
   else if (Bucket >= NumBuckets)
     Bucket = NumBuckets - 1;
   return (Bucket);
-
 }                                /* BucketFor */
 
 
@@ -541,13 +462,12 @@ int CircBucketFor(FLOAT32 Param, FLOAT32 Offset, int NumBuckets) {
  */
   int Bucket;
 
-  Bucket = (int) MapParam (Param, Offset, NumBuckets);
+  Bucket = static_cast<int>(MapParam(Param, Offset, NumBuckets));
   if (Bucket < 0)
     Bucket += NumBuckets;
   else if (Bucket >= NumBuckets)
     Bucket -= NumBuckets;
-  return (Bucket);
-
+  return Bucket;
 }                                /* CircBucketFor */
 
 
@@ -592,14 +512,14 @@ void ConvertConfig(BIT_VECTOR Config, int ConfigId, INT_CLASS Class) {
   int TotalLength;
 
   for (ProtoId = 0, TotalLength = 0;
-       ProtoId < NumIntProtosIn (Class); ProtoId++) {
+    ProtoId < Class->NumProtos; ProtoId++) {
     if (test_bit (Config, ProtoId)) {
       Proto = ProtoForProtoId (Class, ProtoId);
       SET_BIT (Proto->Configs, ConfigId);
-      TotalLength += LengthForProtoId (Class, ProtoId);
+      TotalLength += Class->ProtoLengths[ProtoId];
     }
   }
-  LengthForConfigId (Class, ConfigId) = TotalLength;
+  Class->ConfigLengths[ConfigId] = TotalLength;
 }                                /* ConvertConfig */
 
 
@@ -620,31 +540,31 @@ void ConvertProto(PROTO Proto, int ProtoId, INT_CLASS Class) {
   INT_PROTO P;
   FLOAT32 Param;
 
-  assert (ProtoId < NumIntProtosIn (Class));
+  assert(ProtoId < Class->NumProtos);
 
   P = ProtoForProtoId (Class, ProtoId);
 
-  Param = CoefficientA (Proto) * 128;
+  Param = Proto->A * 128;
   P->A = TruncateParam (Param, -128, 127, NULL);
 
-  Param = -CoefficientB (Proto) * 256;
+  Param = -Proto->B * 256;
   P->B = TruncateParam (Param, 0, 255, NULL);
 
-  Param = CoefficientC (Proto) * 128;
+  Param = Proto->C * 128;
   P->C = TruncateParam (Param, -128, 127, NULL);
 
-  Param = ProtoAngle (Proto) * 256;
+  Param = Proto->Angle * 256;
   if (Param < 0 || Param >= 256)
     P->Angle = 0;
   else
     P->Angle = (uinT8) Param;
 
   /* round proto length to nearest integer number of pico-features */
-  Param = (ProtoLength (Proto) / GetPicoFeatureLength ()) + 0.5;
-  LengthForProtoId (Class, ProtoId) = TruncateParam (Param, 1, 255, NULL);
-  if (LearningDebugLevel >= 2)
+  Param = (Proto->Length / GetPicoFeatureLength()) + 0.5;
+  Class->ProtoLengths[ProtoId] = TruncateParam(Param, 1, 255, NULL);
+  if (classify_learning_debug_level >= 2)
     cprintf ("Converted ffeat to (A=%d,B=%d,C=%d,L=%d)",
-             P->A, P->B, P->C, LengthForProtoId (Class, ProtoId));
+            P->A, P->B, P->C, Class->ProtoLengths[ProtoId]);
 }                                /* ConvertProto */
 
 
@@ -674,13 +594,13 @@ INT_TEMPLATES Classify::CreateIntTemplates(CLASSES FloatProtos,
 
   for (ClassId = 0; ClassId < target_unicharset.size(); ClassId++) {
     FClass = &(FloatProtos[ClassId]);
-    if (NumProtosIn (FClass) == 0 && NumConfigsIn(FClass) == 0 &&
+    if (FClass->NumProtos == 0 && FClass->NumConfigs == 0 &&
         strcmp(target_unicharset.id_to_unichar(ClassId), " ") != 0) {
       cprintf("Warning: no protos/configs for %s in CreateIntTemplates()\n",
               target_unicharset.id_to_unichar(ClassId));
     }
     assert (UnusedClassIdIn (IntTemplates, ClassId));
-    IClass = NewIntClass (NumProtosIn (FClass), NumConfigsIn (FClass));
+    IClass = NewIntClass(FClass->NumProtos, FClass->NumConfigs);
     FontSet fs;
     fs.size = FClass->font_set.size();
     fs.configs = new int[fs.size];
@@ -695,16 +615,16 @@ INT_TEMPLATES Classify::CreateIntTemplates(CLASSES FloatProtos,
     }
     AddIntClass(IntTemplates, ClassId, IClass);
 
-    for (ProtoId = 0; ProtoId < NumProtosIn (FClass); ProtoId++) {
+    for (ProtoId = 0; ProtoId < FClass->NumProtos; ProtoId++) {
       AddIntProto(IClass);
       ConvertProto (ProtoIn (FClass, ProtoId), ProtoId, IClass);
       AddProtoToProtoPruner (ProtoIn (FClass, ProtoId), ProtoId, IClass);
       AddProtoToClassPruner (ProtoIn (FClass, ProtoId), ClassId, IntTemplates);
     }
 
-    for (ConfigId = 0; ConfigId < NumConfigsIn (FClass); ConfigId++) {
+    for (ConfigId = 0; ConfigId < FClass->NumConfigs; ConfigId++) {
       AddIntConfig(IClass);
-      ConvertConfig (ConfigIn (FClass, ConfigId), ConfigId, IClass);
+      ConvertConfig(FClass->Configurations[ConfigId], ConfigId, IClass);
     }
   }
   return (IntTemplates);
@@ -731,6 +651,9 @@ void DisplayIntFeature(INT_FEATURE Feature, FLOAT32 Evidence) {
 
   Color = GetMatchColorFor (Evidence);
   RenderIntFeature(IntMatchWindow, Feature, Color);
+  if (FeatureDisplayWindow) {
+    RenderIntFeature(FeatureDisplayWindow, Feature, Color);
+  }
 }                                /* DisplayIntFeature */
 
 
@@ -753,36 +676,11 @@ void DisplayIntProto(INT_CLASS Class, PROTO_ID ProtoId, FLOAT32 Evidence) {
 
   Color = GetMatchColorFor (Evidence);
   RenderIntProto(IntMatchWindow, Class, ProtoId, Color);
-
+  if (ProtoDisplayWindow) {
+    RenderIntProto(ProtoDisplayWindow, Class, ProtoId, Color);
+  }
 }                                /* DisplayIntProto */
 #endif
-
-/*---------------------------------------------------------------------------*/
-void InitIntProtoVars() {
-/*
- **	Parameters: none
- **	Globals: none
- **	Operation: Initialize the control variables for the integer proto
- **		routines.
- **	Return: none
- **	Exceptions: none
- **	History: Tue Feb 12 08:04:34 1991, DSJ, Created.
- */
-  MakeNumCPLevels();
-  MakeCPAnglePadLoose();
-  MakeCPAnglePadMedium();
-  MakeCPAnglePadTight();
-  MakeCPEndPadLoose();
-  MakeCPEndPadMedium();
-  MakeCPEndPadTight();
-  MakeCPSidePadLoose();
-  MakeCPSidePadMedium();
-  MakeCPSidePadTight();
-  MakePPAnglePad();
-  MakePPEndPad();
-  MakePPSidePad();
-}                                /* InitIntProtoVars */
-
 
 /*---------------------------------------------------------------------------*/
 INT_CLASS NewIntClass(int MaxNumProtos, int MaxNumConfigs) {
@@ -806,20 +704,20 @@ INT_CLASS NewIntClass(int MaxNumProtos, int MaxNumConfigs) {
   assert (MaxNumConfigs <= MAX_NUM_CONFIGS);
 
   Class = (INT_CLASS) Emalloc (sizeof (INT_CLASS_STRUCT));
-  NumProtoSetsIn (Class) = ((MaxNumProtos + PROTOS_PER_PROTO_SET - 1) /
+  Class->NumProtoSets = ((MaxNumProtos + PROTOS_PER_PROTO_SET - 1) /
                             PROTOS_PER_PROTO_SET);
 
-  assert (NumProtoSetsIn (Class) <= MAX_NUM_PROTO_SETS);
+  assert(Class->NumProtoSets <= MAX_NUM_PROTO_SETS);
 
-  NumIntProtosIn (Class) = 0;
-  NumIntConfigsIn (Class) = 0;
+  Class->NumProtos = 0;
+  Class->NumConfigs = 0;
 
-  for (i = 0; i < NumProtoSetsIn (Class); i++) {
+  for (i = 0; i < Class->NumProtoSets; i++) {
     /* allocate space for a proto set, install in class, and initialize */
     ProtoSet = (PROTO_SET) Emalloc (sizeof (PROTO_SET_STRUCT));
-    ProtoSetIn (Class, i) = ProtoSet;
-    for (Word = (uinT32 *) (ProtoPrunerFor (ProtoSet));
-         Word < (uinT32 *) (ProtoPrunerFor (ProtoSet)) + WERDS_PER_PP;
+    Class->ProtoSets[i] = ProtoSet;
+    for (Word = reinterpret_cast<uinT32*>(ProtoSet->ProtoPruner);
+         Word < reinterpret_cast<uinT32*>(ProtoSet->ProtoPruner) + WERDS_PER_PP;
          *Word++ = 0);
 
     /* allocate space for the proto lengths and install in class */
@@ -836,17 +734,16 @@ INT_CLASS NewIntClass(int MaxNumProtos, int MaxNumConfigs) {
 
 /*-------------------------------------------------------------------------*/
 void free_int_class(INT_CLASS int_class) {
-  if (int_class) {
     int i;
-    for (i = 0; i < NumProtoSetsIn (int_class); i++) {
-      Efree (ProtoSetIn (int_class, i));
+
+  for (i = 0; i < int_class->NumProtoSets; i++) {
+    Efree (int_class->ProtoSets[i]);
     }
     if (int_class->ProtoLengths != NULL) {
       Efree (int_class->ProtoLengths);
     }
     Efree(int_class);
   }
-}
 
 
 /*---------------------------------------------------------------------------*/
@@ -864,14 +761,13 @@ INT_TEMPLATES NewIntTemplates() {
   int i;
 
   T = (INT_TEMPLATES) Emalloc (sizeof (INT_TEMPLATES_STRUCT));
-  NumClassesIn (T) = 0;
-  NumClassPrunersIn (T) = 0;
+  T->NumClasses = 0;
+  T->NumClassPruners = 0;
 
   for (i = 0; i < MAX_NUM_CLASSES; i++)
     ClassForClassId (T, i) = NULL;
 
   return (T);
-
 }                                /* NewIntTemplates */
 
 
@@ -879,9 +775,9 @@ INT_TEMPLATES NewIntTemplates() {
 void free_int_templates(INT_TEMPLATES templates) {
   int i;
 
-  for (i = 0; i < NumClassesIn (templates); i++)
-    free_int_class (ClassForClassId (templates, i));
-  for (i = 0; i < NumClassPrunersIn (templates); i++)
+  for (i = 0; i < templates->NumClasses; i++)
+    free_int_class(templates->Class[i]);
+  for (i = 0; i < templates->NumClassPruners; i++)
     Efree (templates->ClassPruner[i]);
   Efree(templates);
 }
@@ -898,7 +794,7 @@ void read_info(FILE* f, FontInfo* fi, bool swap) {
   fi->name = new char[size + 1];
   fread(fi->name, sizeof(char), size, f);
   fi->name[size] = '\0';
-  fread(&fi->properties, sizeof(inT32), 1, f);
+  fread(&fi->properties, sizeof(fi->properties), 1, f);
   if (swap)
     reverse32(&fi->properties);
 }
@@ -957,9 +853,9 @@ INT_TEMPLATES Classify::ReadIntTemplates(FILE *File) {
   /* variables for conversion from older inttemp formats */
   int b, bit_number, last_cp_bit_number, new_b, new_i, new_w;
   CLASS_ID class_id, max_class_id;
-  inT16 IndexFor[MAX_NUM_CLASSES];
-  CLASS_ID ClassIdFor[MAX_NUM_CLASSES];
-  CLASS_PRUNER TempClassPruner[MAX_NUM_CLASS_PRUNERS];
+  inT16 *IndexFor = new inT16[MAX_NUM_CLASSES];
+  CLASS_ID *ClassIdFor = new CLASS_ID[MAX_NUM_CLASSES];
+  CLASS_PRUNER *TempClassPruner = new CLASS_PRUNER[MAX_NUM_CLASS_PRUNERS];
   uinT32 SetBitsForMask =           // word with NUM_BITS_PER_CLASS
     (1 << NUM_BITS_PER_CLASS) - 1;  // set starting at bit 0
   uinT32 Mask, NewMask, ClassBits;
@@ -972,8 +868,10 @@ INT_TEMPLATES Classify::ReadIntTemplates(FILE *File) {
   // Read Templates in parts for 64 bit compatibility.
   if (fread(&unicharset_size, sizeof(int), 1, File) != 1)
     cprintf ("Bad read of inttemp!\n");
-  if (fread(&Templates->NumClasses, sizeof(int), 1, File) != 1 ||
-      fread(&Templates->NumClassPruners, sizeof(int), 1, File) != 1)
+  if (fread(&Templates->NumClasses,
+            sizeof(Templates->NumClasses), 1, File) != 1 ||
+      fread(&Templates->NumClassPruners,
+            sizeof(Templates->NumClassPruners), 1, File) != 1)
     cprintf ("Bad read of inttemp!\n");
   // Swap status is determined automatically.
   swap = Templates->NumClassPruners < 0 ||
@@ -982,12 +880,6 @@ INT_TEMPLATES Classify::ReadIntTemplates(FILE *File) {
     reverse32 (&Templates->NumClassPruners);
     reverse32 (&Templates->NumClasses);
     reverse32 (&unicharset_size);
-  }
-  if (unicharset_size != unicharset.size()) {
-    cprintf("Error: %d classes in inttemp while "
-            "unicharset contains %d unichars.\n",
-            unicharset_size, unicharset.size());
-    exit(1);
   }
   if (Templates->NumClasses < 0) {
     // This file has a version id!
@@ -1009,20 +901,20 @@ INT_TEMPLATES Classify::ReadIntTemplates(FILE *File) {
       if (fread(&IndexFor[i], sizeof(inT16), 1, File) != 1)
         cprintf("Bad read of inttemp!\n");
     }
-    for (i = 0; i < NumClassesIn (Templates); ++i) {
+    for (i = 0; i < Templates->NumClasses; ++i) {
       if (fread(&ClassIdFor[i], sizeof(CLASS_ID), 1, File) != 1)
         cprintf("Bad read of inttemp!\n");
     }
     if (swap) {
-      for (i = 0; i < NumClassesIn (Templates); i++)
+      for (i = 0; i < Templates->NumClasses; i++)
         reverse16 (IndexFor[i]);
-      for (i = 0; i < NumClassesIn (Templates); i++)
+      for (i = 0; i < Templates->NumClasses; i++)
         reverse32 (ClassIdFor[i]);
     }
   }
 
   /* then read in the class pruners */
-  for (i = 0; i < NumClassPrunersIn (Templates); i++) {
+  for (i = 0; i < Templates->NumClassPruners; i++) {
     Pruner = (CLASS_PRUNER) Emalloc (sizeof (CLASS_PRUNER_STRUCT));
     if ((nread =
          fread ((char *) Pruner, 1, sizeof (CLASS_PRUNER_STRUCT),
@@ -1050,7 +942,7 @@ INT_TEMPLATES Classify::ReadIntTemplates(FILE *File) {
   if (version_id < 2) {
     // Allocate enough class pruners to cover all the class ids.
     max_class_id = 0;
-    for (i = 0; i < NumClassesIn (Templates); i++)
+    for (i = 0; i < Templates->NumClasses; i++)
       if (ClassIdFor[i] > max_class_id)
         max_class_id = ClassIdFor[i];
     for (i = 0; i <= CPrunerIdFor(max_class_id); i++) {
@@ -1062,8 +954,8 @@ INT_TEMPLATES Classify::ReadIntTemplates(FILE *File) {
     }
     // Convert class pruners from the old format (indexed by class index)
     // to the new format (indexed by class id).
-    last_cp_bit_number = NUM_BITS_PER_CLASS * NumClassesIn (Templates) - 1;
-    for (i = 0; i < NumClassPrunersIn (Templates); i++) {
+    last_cp_bit_number = NUM_BITS_PER_CLASS * Templates->NumClasses - 1;
+    for (i = 0; i < Templates->NumClassPruners; i++) {
       for (x = 0; x < NUM_CP_BUCKETS; x++)
         for (y = 0; y < NUM_CP_BUCKETS; y++)
           for (z = 0; z < NUM_CP_BUCKETS; z++)
@@ -1096,14 +988,13 @@ INT_TEMPLATES Classify::ReadIntTemplates(FILE *File) {
               }
             }
     }
-    for (i = 0; i < NumClassPrunersIn (Templates); i++) {
+    for (i = 0; i < Templates->NumClassPruners; i++) {
       Efree (TempClassPruner[i]);
     }
   }
 
-#ifndef DISABLE_INTEGER_MATCHING
   /* then read in each class */
-  for (i = 0; i < NumClassesIn (Templates); i++) {
+  for (i = 0; i < Templates->NumClasses; i++) {
     /* first read in the high level struct for the class */
     Class = (INT_CLASS) Emalloc (sizeof (INT_CLASS_STRUCT));
     if (fread(&Class->NumProtos, sizeof(Class->NumProtos), 1, File) != 1 ||
@@ -1158,7 +1049,7 @@ INT_TEMPLATES Classify::ReadIntTemplates(FILE *File) {
     Class->ProtoLengths = Lengths;
 
     /* then read in the proto sets */
-    for (j = 0; j < NumProtoSetsIn (Class); j++) {
+    for (j = 0; j < Class->NumProtoSets; j++) {
       ProtoSet = (PROTO_SET)Emalloc(sizeof(PROTO_SET_STRUCT));
       if (version_id < 3) {
         if ((nread =
@@ -1195,7 +1086,7 @@ INT_TEMPLATES Classify::ReadIntTemplates(FILE *File) {
           for (y = 0; y < WerdsPerConfigVec; y++)
             reverse32 (&ProtoSet->Protos[x].Configs[y]);
       }
-      ProtoSetIn (Class, j) = ProtoSet;
+      Class->ProtoSets[j] = ProtoSet;
     }
     if (version_id < 4)
       Class->font_set_id = -1;
@@ -1211,10 +1102,10 @@ INT_TEMPLATES Classify::ReadIntTemplates(FILE *File) {
     assert(UnusedClassIdIn (Templates, 0));
     ClassForClassId (Templates, 0) = NewIntClass (1, 1);
     ClassForClassId (Templates, 0)->font_set_id = -1;
-    NumClassesIn (Templates)++;
+    Templates->NumClasses++;
     /* make sure the classes are contiguous */
     for (i = 0; i < MAX_NUM_CLASSES; i++) {
-      if (i < NumClassesIn (Templates)) {
+      if (i < Templates->NumClasses) {
         if (ClassForClassId (Templates, i) == NULL) {
           fprintf(stderr, "Non-contiguous class ids in inttemp\n");
           exit(1);
@@ -1222,7 +1113,7 @@ INT_TEMPLATES Classify::ReadIntTemplates(FILE *File) {
       } else {
         if (ClassForClassId (Templates, i) != NULL) {
           fprintf(stderr, "Class id %d exceeds NumClassesIn (Templates) %d\n",
-                  i, NumClassesIn (Templates));
+                  i, Templates->NumClasses);
           exit(1);
         }
       }
@@ -1232,7 +1123,12 @@ INT_TEMPLATES Classify::ReadIntTemplates(FILE *File) {
     this->fontinfo_table_.read(File, NewPermanentCallback(read_info), swap);
     this->fontset_table_.read(File, NewPermanentCallback(read_set), swap);
   }
-#endif
+
+  // Clean up.
+  delete[] IndexFor;
+  delete[] ClassIdFor;
+  delete[] TempClassPruner;
+
   return (Templates);
 }                                /* ReadIntTemplates */
 
@@ -1255,27 +1151,19 @@ void ShowMatchDisplay() {
  */
   void *window;
   /* Size of drawable */
-  if (IntMatchWindow == NULL) {
-    IntMatchWindow =
-      c_create_window("IntMatchWindow", 50, 200, 520, 520,
-                      -130.0, 130.0, -130.0, 130.0);
-    SVMenuNode* popup_menu = new SVMenuNode();
-
-    popup_menu->AddChild("Debug Adapted classes", IDA_ADAPTIVE,
-                         "x", "Class to debug");
-    popup_menu->AddChild("Debug Static classes", IDA_STATIC,
-                         "x", "Class to debug");
-    popup_menu->AddChild("Debug Both", IDA_BOTH,
-                         "x", "Class to debug");
-    popup_menu->BuildMenu(IntMatchWindow, false);
-  }
-  else
+  InitIntMatchWindowIfReqd();
     c_clear_window(IntMatchWindow);
+  if (ProtoDisplayWindow) {
+    c_clear_window(ProtoDisplayWindow);
+  }
+  if (FeatureDisplayWindow) {
+    c_clear_window(FeatureDisplayWindow);
+  }
 
   window = IntMatchWindow;
   c_line_color_index(window, Grey);
   /* Default size of drawing */
-  if (NormMethod == baseline) {
+  if (classify_norm_method == baseline) {
     c_move (window, -1000.0, INT_BASELINE);
     c_draw (window, 1000.0, INT_BASELINE);
     c_move (window, -1000.0, INT_DESCENDER);
@@ -1309,6 +1197,14 @@ void ShowMatchDisplay() {
   }
   IntMatchWindow->ZoomToRectangle(INT_MIN_X, INT_MIN_Y,
                                   INT_MAX_X, INT_MAX_Y);
+  if (ProtoDisplayWindow) {
+    ProtoDisplayWindow->ZoomToRectangle(INT_MIN_X, INT_MIN_Y,
+                                        INT_MAX_X, INT_MAX_Y);
+  }
+  if (FeatureDisplayWindow) {
+    FeatureDisplayWindow->ZoomToRectangle(INT_MIN_X, INT_MIN_Y,
+                                          INT_MAX_X, INT_MAX_Y);
+  }
 }                                /* ShowMatchDisplay */
 #endif
 
@@ -1333,10 +1229,10 @@ void Classify::WriteIntTemplates(FILE *File, INT_TEMPLATES Templates,
   int unicharset_size = target_unicharset.size();
   int version_id = -4;  // When negated by the reader -1 becomes +1 etc.
 
-  if (NumClassesIn(Templates) != unicharset_size) {
+  if (Templates->NumClasses != unicharset_size) {
     cprintf("Warning: executing WriteIntTemplates() with %d classes in"
             " Templates, while target_unicharset size is %d\n",
-            NumClassesIn(Templates), unicharset_size);
+            Templates->NumClasses, unicharset_size);
   }
 
   /* first write the high level template struct */
@@ -1347,13 +1243,13 @@ void Classify::WriteIntTemplates(FILE *File, INT_TEMPLATES Templates,
   fwrite(&Templates->NumClasses, sizeof(Templates->NumClasses), 1, File);
 
   /* then write out the class pruners */
-  for (i = 0; i < NumClassPrunersIn (Templates); i++)
+  for (i = 0; i < Templates->NumClassPruners; i++)
     fwrite(Templates->ClassPruner[i],
            sizeof(CLASS_PRUNER_STRUCT), 1, File);
 
   /* then write out each class */
-  for (i = 0; i < NumClassesIn (Templates); i++) {
-    Class = ClassForClassId(Templates, i);
+  for (i = 0; i < Templates->NumClasses; i++) {
+    Class = Templates->Class[i];
 
     /* first write out the high level struct for the class */
     fwrite(&Class->NumProtos, sizeof(Class->NumProtos), 1, File);
@@ -1371,8 +1267,8 @@ void Classify::WriteIntTemplates(FILE *File, INT_TEMPLATES Templates,
     }
 
     /* then write out the proto sets */
-    for (j = 0; j < NumProtoSetsIn (Class); j++)
-      fwrite ((char *) ProtoSetIn (Class, j),
+    for (j = 0; j < Class->NumProtoSets; j++)
+      fwrite ((char *) Class->ProtoSets[j],
               sizeof (PROTO_SET_STRUCT), 1, File);
 
     /* then write the fonts info */
@@ -1537,7 +1433,7 @@ FillPPCircularBits (uinT32 ParamTable[NUM_PP_BUCKETS][WERDS_PER_PP_VECTOR],
   LastBucket = (int) floor ((Center + Spread) * NUM_PP_BUCKETS);
   if (LastBucket >= NUM_PP_BUCKETS)
     LastBucket -= NUM_PP_BUCKETS;
-  if (LearningDebugLevel >= 2)
+  if (classify_learning_debug_level >= 2)
     cprintf ("Circular fill from %d to %d", FirstBucket, LastBucket);
   for (i = FirstBucket; TRUE; CircularIncrement (i, NUM_PP_BUCKETS)) {
     SET_BIT (ParamTable[i], Bit);
@@ -1582,7 +1478,7 @@ FillPPLinearBits (uinT32 ParamTable[NUM_PP_BUCKETS][WERDS_PER_PP_VECTOR],
   if (LastBucket >= NUM_PP_BUCKETS)
     LastBucket = NUM_PP_BUCKETS - 1;
 
-  if (LearningDebugLevel >= 2)
+  if (classify_learning_debug_level >= 2)
     cprintf ("Linear fill from %d to %d", FirstBucket, LastBucket);
   for (i = FirstBucket; i <= LastBucket; i++)
     SET_BIT (ParamTable[i], Bit);
@@ -1651,27 +1547,27 @@ void GetCPPadsForLevel(int Level,
  */
   switch (Level) {
     case 0:
-      *EndPad = CPEndPadLoose * GetPicoFeatureLength ();
-      *SidePad = CPSidePadLoose * GetPicoFeatureLength ();
-      *AnglePad = CPAnglePadLoose / 360.0;
+      *EndPad = classify_cp_end_pad_loose * GetPicoFeatureLength ();
+      *SidePad = classify_cp_side_pad_loose * GetPicoFeatureLength ();
+      *AnglePad = classify_cp_angle_pad_loose / 360.0;
       break;
 
     case 1:
-      *EndPad = CPEndPadMedium * GetPicoFeatureLength ();
-      *SidePad = CPSidePadMedium * GetPicoFeatureLength ();
-      *AnglePad = CPAnglePadMedium / 360.0;
+      *EndPad = classify_cp_end_pad_medium * GetPicoFeatureLength ();
+      *SidePad = classify_cp_side_pad_medium * GetPicoFeatureLength ();
+      *AnglePad = classify_cp_angle_pad_medium / 360.0;
       break;
 
     case 2:
-      *EndPad = CPEndPadTight * GetPicoFeatureLength ();
-      *SidePad = CPSidePadTight * GetPicoFeatureLength ();
-      *AnglePad = CPAnglePadTight / 360.0;
+      *EndPad = classify_cp_end_pad_tight * GetPicoFeatureLength ();
+      *SidePad = classify_cp_side_pad_tight * GetPicoFeatureLength ();
+      *AnglePad = classify_cp_angle_pad_tight / 360.0;
       break;
 
     default:
-      *EndPad = CPEndPadTight * GetPicoFeatureLength ();
-      *SidePad = CPSidePadTight * GetPicoFeatureLength ();
-      *AnglePad = CPAnglePadTight / 360.0;
+      *EndPad = classify_cp_end_pad_tight * GetPicoFeatureLength ();
+      *SidePad = classify_cp_side_pad_tight * GetPicoFeatureLength ();
+      *AnglePad = classify_cp_angle_pad_tight / 360.0;
       break;
   }
   if (*AnglePad > 0.5)
@@ -1788,10 +1684,10 @@ void InitTableFiller (FLOAT32 EndPad, FLOAT32 SidePad,
   int S1 = 0;
   int S2 = 1;
 
-  Angle = ProtoAngle (Proto);
-  X = ProtoX (Proto);
-  Y = ProtoY (Proto);
-  HalfLength = ProtoLength (Proto) / 2.0;
+  Angle = Proto->Angle;
+  X = Proto->X;
+  Y = Proto->Y;
+  HalfLength = Proto->Length / 2.0;
 
   Filler->AngleStart = CircBucketFor (Angle - AnglePad, AS, NB);
   Filler->AngleEnd = CircBucketFor (Angle + AnglePad, AS, NB);
@@ -1806,8 +1702,7 @@ void InitTableFiller (FLOAT32 EndPad, FLOAT32 SidePad,
     Filler->EndDelta = 0;
     Filler->Switch[0].Type = LastSwitch;
     Filler->Switch[0].X = BucketFor (X + HalfLength + EndPad, XS, NB);
-  }
-  else if (fabs (Angle - 0.25) < HV_TOLERANCE ||
+  } else if (fabs(Angle - 0.25) < HV_TOLERANCE ||
            fabs (Angle - 0.75) < HV_TOLERANCE) {
     /* vertical proto - handle as special case */
     Filler->X = BucketFor (X - SidePad, XS, NB);
@@ -1817,8 +1712,7 @@ void InitTableFiller (FLOAT32 EndPad, FLOAT32 SidePad,
     Filler->EndDelta = 0;
     Filler->Switch[0].Type = LastSwitch;
     Filler->Switch[0].X = BucketFor (X + SidePad, XS, NB);
-  }
-  else {
+  } else {
     /* diagonal proto */
 
     if ((Angle > 0.0 && Angle < 0.25) || (Angle > 0.5 && Angle < 0.75)) {
@@ -1873,8 +1767,7 @@ void InitTableFiller (FLOAT32 EndPad, FLOAT32 SidePad,
 
       Filler->Switch[2].Type = LastSwitch;
       Filler->Switch[2].X = (inT8) MapParam (End.x, XS, NB);
-    }
-    else {
+    } else {
       /* falling diagonal proto */
       Angle *= 2.0 * PI;
       Cos = fabs (cos (Angle));
@@ -1995,14 +1888,14 @@ void RenderIntProto(void *window,
 
   assert (ProtoId >= 0);
   assert (Class != NULL);
-  assert (ProtoId < NumIntProtosIn (Class));
+  assert(ProtoId < Class->NumProtos);
   assert (Color != 0);
   c_line_color_index(window, Color);
 
-  ProtoSet = ProtoSetIn (Class, SetForProto (ProtoId));
+  ProtoSet = Class->ProtoSets[SetForProto(ProtoId)];
   ProtoSetIndex = IndexForProto (ProtoId);
   Proto = &(ProtoSet->Protos[ProtoSetIndex]);
-  Length = (LengthForProtoId (Class, ProtoId) *
+  Length = (Class->ProtoLengths[ProtoId] *
             GetPicoFeatureLength () * INT_CHAR_NORM_RANGE);
   ProtoMask = PPrunerMaskFor (ProtoId);
   ProtoWordIndex = PPrunerWordIndexFor (ProtoId);
@@ -2055,13 +1948,65 @@ int TruncateParam(FLOAT32 Param, int Min, int Max, char *Id) {
       cprintf ("Warning: Param %s truncated from %f to %d!\n",
                Id, Param, Min);
     Param = Min;
-  }
-  else if (Param > Max) {
+  } else if (Param > Max) {
     if (Id)
       cprintf ("Warning: Param %s truncated from %f to %d!\n",
                Id, Param, Max);
     Param = Max;
   }
-  return (int) floor (Param);
-
+  return static_cast<int>(floor(Param));
 }                                /* TruncateParam */
+
+
+/*---------------------------------------------------------------------------*/
+
+void InitIntMatchWindowIfReqd() {
+#ifndef GRAPHICS_DISABLED
+/*
+ **     Operation: Initializes the int matcher window if it is not already
+ **     initialized.
+ */
+  if (IntMatchWindow == NULL) {
+    IntMatchWindow = c_create_window("IntMatchWindow", 50, 200,
+                                     520, 520,
+                                     -130.0, 130.0, -130.0, 130.0);
+    SVMenuNode* popup_menu = new SVMenuNode();
+
+    popup_menu->AddChild("Debug Adapted classes", IDA_ADAPTIVE,
+                         "x", "Class to debug");
+    popup_menu->AddChild("Debug Static classes", IDA_STATIC,
+                         "x", "Class to debug");
+    popup_menu->AddChild("Debug Both", IDA_BOTH,
+                         "x", "Class to debug");
+    popup_menu->BuildMenu(IntMatchWindow, false);
+  }
+#endif
+}
+
+void InitProtoDisplayWindowIfReqd() {
+#ifndef GRAPHICS_DISABLED
+/*
+ **     Operation: Initializes the proto display window if it is not already
+ **     initialized.
+ */
+  if (ProtoDisplayWindow == NULL) {
+    ProtoDisplayWindow = c_create_window("ProtoDisplayWindow", 50, 200,
+                                         520, 520,
+                                         -130.0, 130.0, -130.0, 130.0);
+  }
+#endif
+}
+
+void InitFeatureDisplayWindowIfReqd() {
+#ifndef GRAPHICS_DISABLED
+/*
+ **     Operation: Initializes the feature display window if it is not already
+ **     initialized.
+ */
+  if (FeatureDisplayWindow == NULL) {
+    FeatureDisplayWindow = c_create_window("FeatureDisplayWindow", 50, 200,
+                                           520, 520,
+                                           -130.0, 130.0, -130.0, 130.0);
+  }
+#endif
+}

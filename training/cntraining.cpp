@@ -241,7 +241,7 @@ void ReadTrainingSamples (
           }
           CharDesc = ReadCharDescription (File);
           Type = ShortNameToFeatureType(PROGRAM_FEATURE_TYPE);
-          FeatureSamples = FeaturesOfType(CharDesc, Type);
+          FeatureSamples = CharDesc->FeatureSets[Type];
           for (int feature = 0; feature < FeatureSamples->NumFeatures; ++feature) {
             FEATURE f = FeatureSamples->Features[feature];
             for (int dim =0; dim < f->Type->NumParams; ++dim)
@@ -249,9 +249,9 @@ void ReadTrainingSamples (
           }
           CharSample->List = push (CharSample->List, FeatureSamples);
           CharSample->SampleCount++;
-          for (i = 0; i < NumFeatureSetsIn (CharDesc); i++)
+          for (i = 0; i < CharDesc->NumFeatureSets; i++)
             if (Type != i)
-              FreeFeatureSet (FeaturesOfType (CharDesc, i));
+              FreeFeatureSet(CharDesc->FeatureSets[i]);
           free (CharDesc);
         }
 }	// ReadTrainingSamples
