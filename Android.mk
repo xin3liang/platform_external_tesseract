@@ -1,3 +1,5 @@
+ifneq ($(TARGET_SIMULATOR),true)
+
 LOCAL_PATH:= $(call my-dir)
 
 BUILD_FOR_HOST:=0
@@ -534,3 +536,4 @@ include $(BUILD_HOST_EXECUTABLE)
 
 endif #BUILD_FOR_HOST
 
+endif #TARGET_SIMULATOR
